@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/elprogramadorgt/lucidRAG/internal/domain"
 )
@@ -15,6 +16,7 @@ type InMemoryDocumentRepository struct {
 	documents map[string]*domain.Document
 	chunks    map[string][]*domain.DocumentChunk
 	mu        sync.RWMutex
+	idCounter uint64
 }
 
 // NewInMemoryDocumentRepository creates a new in-memory document repository
@@ -22,6 +24,7 @@ func NewInMemoryDocumentRepository() *InMemoryDocumentRepository {
 	return &InMemoryDocumentRepository{
 		documents: make(map[string]*domain.Document),
 		chunks:    make(map[string][]*domain.DocumentChunk),
+		idCounter: 0,
 	}
 }
 
@@ -31,7 +34,8 @@ func (r *InMemoryDocumentRepository) Save(ctx context.Context, doc *domain.Docum
 	defer r.mu.Unlock()
 
 	if doc.ID == "" {
-		doc.ID = fmt.Sprintf("doc_%d", len(r.documents)+1)
+		id := atomic.AddUint64(&r.idCounter, 1)
+		doc.ID = fmt.Sprintf("doc_%d", id)
 	}
 
 	r.documents[doc.ID] = doc

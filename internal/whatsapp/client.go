@@ -128,7 +128,11 @@ func (c *Client) sendRequest(ctx context.Context, url string, payload interface{
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.logger.Warn("Failed to read response body: %v", err)
+		body = []byte{}
+	}
 
 	if resp.StatusCode >= 400 {
 		c.logger.Error("WhatsApp API error: %s", string(body))
