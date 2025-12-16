@@ -1,0 +1,47 @@
+<div class="conversation-list-container">
+  <div class="header">
+    <h2>WhatsApp Conversations</h2>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <p>Loading conversations...</p>
+  </div>
+
+  <div *ngIf="error" class="error">
+    <p>{{ error }}</p>
+    <button (click)="loadSessions()" class="retry-button">Retry</button>
+  </div>
+
+  <div *ngIf="!loading && !error && sessions.length === 0" class="no-data">
+    <p>No conversations found.</p>
+  </div>
+
+  <div *ngIf="!loading && !error && sessions.length > 0" class="sessions-list">
+    <table class="sessions-table">
+      <thead>
+        <tr>
+          <th>Phone Number</th>
+          <th>Started</th>
+          <th>Last Message</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let session of sessions" class="session-row">
+          <td>{{ session.user_phone_number }}</td>
+          <td>{{ formatDate(session.started_at) }}</td>
+          <td>{{ formatDate(session.last_message_at) }}</td>
+          <td>
+            <span [class]="getStatusClass(session.is_active)">
+              {{ session.is_active ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td>
+            <a [routerLink]="['/conversations', session.id]" class="view-button">View Messages</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

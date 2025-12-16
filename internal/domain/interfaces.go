@@ -34,6 +34,7 @@ type SessionRepository interface {
 	GetByPhoneNumber(ctx context.Context, phoneNumber string) (*ChatSession, error)
 	UpdateLastMessage(ctx context.Context, sessionID string) error
 	SetInactive(ctx context.Context, sessionID string) error
+	List(ctx context.Context, limit, offset int) ([]*ChatSession, error)
 }
 
 // DocumentRepository defines the interface for document persistence

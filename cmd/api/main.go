@@ -35,6 +35,8 @@ func main() {
 
 	// Initialize repositories
 	docRepo := repository.NewInMemoryDocumentRepository()
+	messageRepo := repository.NewInMemoryMessageRepository()
+	sessionRepo := repository.NewInMemorySessionRepository()
 	log.Info("Repositories initialized")
 
 	// Initialize services
@@ -46,6 +48,7 @@ func main() {
 	healthHandler := handler.NewHealthHandler(log)
 	whatsappHandler := handler.NewWhatsAppHandler(whatsappClient, log)
 	ragHandler := handler.NewRAGHandler(ragService, log)
+	conversationHandler := handler.NewConversationHandler(sessionRepo, messageRepo, log)
 	log.Info("Handlers initialized")
 
 	// Setup routes
@@ -83,6 +86,11 @@ func main() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
+
+	// Conversation API routes
+	mux.HandleFunc("/api/v1/conversations", conversationHandler.ListSessions)
+	mux.HandleFunc("/api/v1/conversations/session", conversationHandler.GetSession)
+	mux.HandleFunc("/api/v1/conversations/messages", conversationHandler.GetMessages)
 
 	// Apply middleware
 	handler := middleware.CORS(mux)
