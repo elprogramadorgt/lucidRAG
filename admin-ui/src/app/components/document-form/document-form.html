@@ -1,0 +1,60 @@
+<div class="document-form-container">
+  <h2>Add New Document</h2>
+
+  <div *ngIf="success" class="success">{{ success }}</div>
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <form (ngSubmit)="onSubmit()" #documentForm="ngForm">
+    <div class="form-group">
+      <label for="title">Title *</label>
+      <input
+        type="text"
+        id="title"
+        name="title"
+        [(ngModel)]="document.title"
+        required
+        placeholder="Enter document title"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="source">Source</label>
+      <input
+        type="text"
+        id="source"
+        name="source"
+        [(ngModel)]="document.source"
+        placeholder="e.g., website, manual, FAQ"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="content">Content *</label>
+      <textarea
+        id="content"
+        name="content"
+        [(ngModel)]="document.content"
+        required
+        rows="10"
+        placeholder="Enter document content"
+      ></textarea>
+    </div>
+
+    <div class="form-group checkbox">
+      <input
+        type="checkbox"
+        id="is_active"
+        name="is_active"
+        [(ngModel)]="document.is_active"
+      />
+      <label for="is_active">Active</label>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn-primary" [disabled]="!documentForm.form.valid || submitting">
+        {{ submitting ? 'Saving...' : 'Save Document' }}
+      </button>
+      <button type="button" class="btn-secondary" (click)="resetForm()">Reset</button>
+    </div>
+  </form>
+</div>
