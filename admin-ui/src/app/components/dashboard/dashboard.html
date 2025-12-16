@@ -1,0 +1,39 @@
+<div class="dashboard-container">
+  <header class="dashboard-header">
+    <h1>{{ title }}</h1>
+    <nav>
+      <a routerLink="/documents" routerLinkActive="active">Documents</a>
+      <a routerLink="/query" routerLinkActive="active">Query RAG</a>
+    </nav>
+  </header>
+
+  <main class="dashboard-content">
+    <router-outlet></router-outlet>
+    
+    <section class="overview">
+      <div class="card">
+        <h2>Welcome to lucidRAG</h2>
+        <p>Manage your knowledge base and interact with your RAG-powered WhatsApp assistant.</p>
+        
+        <div class="features">
+          <div class="feature">
+            <h3>📚 Document Management</h3>
+            <p>Upload and manage documents in your knowledge base</p>
+          </div>
+          
+          <div class="feature">
+            <h3>💬 WhatsApp Integration</h3>
+            <p>Connect with customers through WhatsApp</p>
+          </div>
+          
+          <div class="feature">
+            <h3>🤖 RAG-Powered Responses</h3>
+            <p>Intelligent responses based on your knowledge base</p>
+          </div>
+        </div>
+      </div>
+      
+      <app-document-list></app-document-list>
+    </section>
+  </main>
+</div>

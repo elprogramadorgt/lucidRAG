@@ -1,0 +1,43 @@
+<div class="document-list-container">
+  <div class="header">
+    <h2>Knowledge Base Documents</h2>
+    <button class="btn-primary" (click)="loadDocuments()">Refresh</button>
+  </div>
+
+  <div *ngIf="loading" class="loading">Loading documents...</div>
+  
+  <div *ngIf="error" class="error">{{ error }}</div>
+
+  <div *ngIf="!loading && documents.length === 0" class="empty-state">
+    <p>No documents found. Add your first document to get started!</p>
+  </div>
+
+  <div *ngIf="!loading && documents.length > 0" class="documents">
+    <table class="document-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Source</th>
+          <th>Uploaded</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let doc of documents">
+          <td>{{ doc.title }}</td>
+          <td>{{ doc.source }}</td>
+          <td>{{ doc.uploaded_at | date:'short' }}</td>
+          <td>
+            <span [class]="doc.is_active ? 'status-active' : 'status-inactive'">
+              {{ doc.is_active ? 'Active' : 'Inactive' }}
+            </span>
+          </td>
+          <td>
+            <button class="btn-small" (click)="deleteDocument(doc.id)">Delete</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
