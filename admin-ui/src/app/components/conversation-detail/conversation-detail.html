@@ -1,0 +1,64 @@
+<div class="conversation-detail-container">
+  <div class="header">
+    <a routerLink="/conversations" class="back-button">← Back to Conversations</a>
+    <h2 *ngIf="session">Conversation with {{ session.user_phone_number }}</h2>
+  </div>
+
+  <div *ngIf="loading" class="loading">
+    <p>Loading conversation...</p>
+  </div>
+
+  <div *ngIf="error" class="error">
+    <p>{{ error }}</p>
+    <button (click)="loadSessionData()" class="retry-button">Retry</button>
+  </div>
+
+  <div *ngIf="!loading && !error && session" class="conversation-content">
+    <div class="session-info">
+      <div class="info-item">
+        <span class="label">Phone Number:</span>
+        <span class="value">{{ session.user_phone_number }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Started:</span>
+        <span class="value">{{ formatDate(session.started_at) }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Last Message:</span>
+        <span class="value">{{ formatDate(session.last_message_at) }}</span>
+      </div>
+      <div class="info-item">
+        <span class="label">Status:</span>
+        <span class="value" [class.active]="session.is_active" [class.inactive]="!session.is_active">
+          {{ session.is_active ? 'Active' : 'Inactive' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="messages-section">
+      <h3>Messages</h3>
+      <div *ngIf="messages.length === 0" class="no-messages">
+        <p>No messages in this conversation yet.</p>
+      </div>
+      
+      <div *ngIf="messages.length > 0" class="messages-list">
+        <div *ngFor="let message of messages" 
+             class="message" 
+             [class.incoming]="isIncomingMessage(message)"
+             [class.outgoing]="!isIncomingMessage(message)">
+          <div class="message-header">
+            <span class="message-from">{{ message.from }}</span>
+            <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+          </div>
+          <div class="message-content">
+            {{ message.content }}
+          </div>
+          <div class="message-footer">
+            <span class="message-type">{{ message.message_type }}</span>
+            <span class="message-status">{{ message.status }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

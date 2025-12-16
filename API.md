@@ -423,6 +423,109 @@ const result = await createResponse.json();
 console.log(result.id);
 ```
 
+---
+
+### List Conversations
+
+Retrieve all WhatsApp conversation sessions.
+
+**Endpoint:** `GET /api/v1/conversations`
+
+**Query Parameters:**
+- `limit` (integer, optional): Maximum number of sessions to return (default: 50)
+- `offset` (integer, optional): Number of sessions to skip (default: 0)
+
+**Response:**
+```json
+{
+  "sessions": [
+    {
+      "id": "session_1",
+      "user_phone_number": "+1234567890",
+      "started_at": "2023-12-01T10:00:00Z",
+      "last_message_at": "2023-12-01T15:30:00Z",
+      "is_active": true,
+      "context": ""
+    }
+  ],
+  "limit": 50,
+  "offset": 0
+}
+```
+
+**Status Codes:**
+- `200 OK`: Sessions retrieved successfully
+- `500 Internal Server Error`: Retrieval error
+
+---
+
+### Get Conversation Session
+
+Retrieve a specific conversation session by ID.
+
+**Endpoint:** `GET /api/v1/conversations/session?id={session_id}`
+
+**Query Parameters:**
+- `id` (string, required): Session ID
+
+**Response:**
+```json
+{
+  "id": "session_1",
+  "user_phone_number": "+1234567890",
+  "started_at": "2023-12-01T10:00:00Z",
+  "last_message_at": "2023-12-01T15:30:00Z",
+  "is_active": true,
+  "context": ""
+}
+```
+
+**Status Codes:**
+- `200 OK`: Session found
+- `400 Bad Request`: Missing session ID
+- `404 Not Found`: Session not found
+- `500 Internal Server Error`: Retrieval error
+
+---
+
+### Get Conversation Messages
+
+Retrieve messages for a specific conversation session.
+
+**Endpoint:** `GET /api/v1/conversations/messages?session_id={session_id}`
+
+**Query Parameters:**
+- `session_id` (string, required): Session ID
+- `limit` (integer, optional): Maximum number of messages to return (default: 100)
+- `offset` (integer, optional): Number of messages to skip (default: 0)
+
+**Response:**
+```json
+{
+  "messages": [
+    {
+      "id": "msg_123",
+      "from": "+1234567890",
+      "to": "PHONE_NUMBER_ID",
+      "content": "Hello, I have a question",
+      "message_type": "text",
+      "timestamp": "2023-12-01T10:00:00Z",
+      "status": "received"
+    }
+  ],
+  "session_id": "session_1",
+  "limit": 100,
+  "offset": 0
+}
+```
+
+**Status Codes:**
+- `200 OK`: Messages retrieved successfully
+- `400 Bad Request`: Missing session ID
+- `500 Internal Server Error`: Retrieval error
+
+---
+
 ## WebSocket Support
 
 > **Note**: WebSocket support is not yet implemented. This section will be updated when WebSocket functionality is added for real-time updates.
