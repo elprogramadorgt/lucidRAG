@@ -12,6 +12,7 @@ import (
 
 	"github.com/elprogramadorgt/lucidRAG/internal/config"
 	"github.com/elprogramadorgt/lucidRAG/internal/domain"
+	"github.com/elprogramadorgt/lucidRAG/internal/repository"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 )
 
@@ -178,7 +179,7 @@ func (c *Client) processMessages(ctx context.Context, value map[string]interface
 		// Create or update session
 		session, err := c.sessionRepo.GetByPhoneNumber(ctx, from)
 		if err != nil {
-			// Create new session
+			// Session not found, create new one
 			session = &domain.ChatSession{
 				UserPhoneNumber: from,
 				StartedAt:       msgTime,
@@ -188,6 +189,7 @@ func (c *Client) processMessages(ctx context.Context, value map[string]interface
 			}
 			if err := c.sessionRepo.Save(ctx, session); err != nil {
 				c.logger.Error("Failed to save session: %v", err)
+				continue
 			}
 		} else {
 			// Update last message time
@@ -196,7 +198,7 @@ func (c *Client) processMessages(ctx context.Context, value map[string]interface
 			}
 		}
 
-		// Save message
+		// Save message with proper session association
 		message := &domain.Message{
 			ID:          msgID,
 			From:        from,
@@ -207,10 +209,19 @@ func (c *Client) processMessages(ctx context.Context, value map[string]interface
 			Status:      "received",
 		}
 
-		if err := c.messageRepo.Save(ctx, message); err != nil {
-			c.logger.Error("Failed to save message: %v", err)
+		if msgRepo, ok := c.messageRepo.(*repository.InMemoryMessageRepository); ok {
+			if err := msgRepo.SaveWithSession(ctx, message, session.ID); err != nil {
+				c.logger.Error("Failed to save message: %v", err)
+			} else {
+				c.logger.Info("Message saved: %s from %s", msgID, from)
+			}
 		} else {
-			c.logger.Info("Message saved: %s from %s", msgID, from)
+			// Fallback to regular Save method
+			if err := c.messageRepo.Save(ctx, message); err != nil {
+				c.logger.Error("Failed to save message: %v", err)
+			} else {
+				c.logger.Info("Message saved: %s from %s", msgID, from)
+			}
 		}
 	}
 }

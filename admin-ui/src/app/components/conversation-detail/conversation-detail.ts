@@ -73,7 +73,8 @@ export class ConversationDetail implements OnInit {
   }
 
   isIncomingMessage(message: Message): boolean {
-    // Messages from users are incoming, messages to users are outgoing
-    return message.from !== this.session?.user_phone_number;
+    // Messages from the user's phone number are incoming (from user to system)
+    // Messages to the user's phone number are outgoing (from system to user)
+    return message.from === this.session?.user_phone_number;
   }
 }

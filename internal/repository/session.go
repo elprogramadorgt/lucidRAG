@@ -115,11 +115,14 @@ func (r *InMemorySessionRepository) List(ctx context.Context, limit, offset int)
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	sessions := make([]*domain.ChatSession, 0)
+	sessions := make([]*domain.ChatSession, 0, limit)
 	count := 0
 	for _, session := range r.sessions {
-		if count >= offset && len(sessions) < limit {
+		if count >= offset {
 			sessions = append(sessions, session)
+			if len(sessions) >= limit {
+				break
+			}
 		}
 		count++
 	}

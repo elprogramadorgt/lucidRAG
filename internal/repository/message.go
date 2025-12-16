@@ -94,3 +94,23 @@ func (r *InMemoryMessageRepository) GetBySession(ctx context.Context, sessionID 
 
 	return messages, nil
 }
+
+// SaveWithSession saves a message and associates it with a session ID
+func (r *InMemoryMessageRepository) SaveWithSession(ctx context.Context, message *domain.Message, sessionID string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if message.ID == "" {
+		id := atomic.AddUint64(&r.idCounter, 1)
+		message.ID = fmt.Sprintf("msg_%d", id)
+	}
+
+	if message.Timestamp.IsZero() {
+		message.Timestamp = time.Now()
+	}
+
+	r.messages[message.ID] = message
+	r.sessionIndex[sessionID] = append(r.sessionIndex[sessionID], message.ID)
+
+	return nil
+}
