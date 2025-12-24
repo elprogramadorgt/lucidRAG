@@ -12,6 +12,13 @@ type Config struct {
 	WhatsApp  WhatsAppConfig
 	RAG       RAGConfig
 	Database  DatabaseConfig
+	Auth      AuthConfig
+}
+
+// AuthConfig holds authentication configuration
+type AuthConfig struct {
+	JWTSecret      string
+	JWTExpiryHours int
 }
 
 // ServerConfig holds server-related configuration
@@ -32,10 +39,11 @@ type WhatsAppConfig struct {
 
 // RAGConfig holds RAG-related configuration
 type RAGConfig struct {
-	ModelName       string
-	EmbeddingModel  string
-	ChunkSize       int
-	ChunkOverlap    int
+	OpenAIAPIKey   string
+	ModelName      string
+	EmbeddingModel string
+	ChunkSize      int
+	ChunkOverlap   int
 }
 
 // DatabaseConfig holds database configuration
@@ -70,6 +78,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid RAG_CHUNK_OVERLAP: %w", err)
 	}
 
+	jwtExpiry, err := strconv.Atoi(getEnv("JWT_EXPIRY_HOURS", "24"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid JWT_EXPIRY_HOURS: %w", err)
+	}
+
 	config := &Config{
 		Server: ServerConfig{
 			Port:        port,
@@ -84,6 +97,7 @@ func Load() (*Config, error) {
 			APIVersion:         getEnv("WHATSAPP_API_VERSION", "v17.0"),
 		},
 		RAG: RAGConfig{
+			OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
 			ModelName:      getEnv("RAG_MODEL_NAME", "gpt-3.5-turbo"),
 			EmbeddingModel: getEnv("RAG_EMBEDDING_MODEL", "text-embedding-ada-002"),
 			ChunkSize:      chunkSize,
@@ -96,6 +110,10 @@ func Load() (*Config, error) {
 			Name:     getEnv("DB_NAME", "lucidrag"),
 			User:     getEnv("DB_USER", "lucidrag"),
 			Password: getEnv("DB_PASSWORD", ""),
+		},
+		Auth: AuthConfig{
+			JWTSecret:      getEnv("JWT_SECRET", ""),
+			JWTExpiryHours: jwtExpiry,
 		},
 	}
 

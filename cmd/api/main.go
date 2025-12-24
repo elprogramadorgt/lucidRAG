@@ -9,15 +9,21 @@ import (
 	"syscall"
 	"time"
 
+	convApp "github.com/elprogramadorgt/lucidRAG/internal/application/conversation"
 	docApp "github.com/elprogramadorgt/lucidRAG/internal/application/document"
+	userApp "github.com/elprogramadorgt/lucidRAG/internal/application/user"
 	"github.com/elprogramadorgt/lucidRAG/internal/application/whatsapp"
 	"github.com/elprogramadorgt/lucidRAG/internal/config"
 	"github.com/elprogramadorgt/lucidRAG/internal/repository/mongo"
 	"github.com/elprogramadorgt/lucidRAG/internal/transport/http/middleware"
+	authHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/auth"
+	conversationHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/conversation"
 	documentHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/document"
 	ragHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/rag"
 	whatsappHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/whatsapp"
+	"github.com/elprogramadorgt/lucidRAG/pkg/chunker"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
+	"github.com/elprogramadorgt/lucidRAG/pkg/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -64,15 +70,59 @@ func main() {
 	// Initialize repositories
 	whatsappRepo := mongo.NewWhatsappRepo(dbClient)
 	documentRepo := mongo.NewDocumentRepo(dbClient)
+	chunkRepo := mongo.NewChunkRepo(dbClient)
+	userRepo := mongo.NewUserRepo(dbClient)
+	conversationRepo := mongo.NewConversationRepo(dbClient)
+	messageRepo := mongo.NewMessageRepo(dbClient)
+
+	// Initialize OpenAI client (optional - RAG will be disabled if not configured)
+	var openaiClient *openai.Client
+	if cfg.RAG.OpenAIAPIKey != "" {
+		openaiClient = openai.NewClient(cfg.RAG.OpenAIAPIKey)
+		log.Info("OpenAI client initialized for RAG")
+	} else {
+		log.Info("OPENAI_API_KEY not set - RAG functionality will be disabled")
+	}
+
+	// Initialize chunker for document processing
+	textChunker := chunker.New(cfg.RAG.ChunkSize, cfg.RAG.ChunkOverlap)
 
 	// Initialize services
 	whatsappSvc := whatsapp.NewService(whatsappRepo)
-	documentSvc := docApp.NewService(documentRepo)
+	documentSvc := docApp.NewService(docApp.ServiceConfig{
+		Repo:           documentRepo,
+		ChunkRepo:      chunkRepo,
+		OpenAIClient:   openaiClient,
+		Chunker:        textChunker,
+		EmbeddingModel: cfg.RAG.EmbeddingModel,
+		ModelName:      cfg.RAG.ModelName,
+	})
+	userSvc := userApp.NewService(userApp.ServiceConfig{
+		Repo:      userRepo,
+		JWTSecret: cfg.Auth.JWTSecret,
+		JWTExpiry: time.Duration(cfg.Auth.JWTExpiryHours) * time.Hour,
+	})
+	conversationSvc := convApp.NewService(convApp.ServiceConfig{
+		ConvRepo: conversationRepo,
+		MsgRepo:  messageRepo,
+	})
 
 	// Initialize handlers
-	whatsappHdlr := whatsappHandler.NewHandler(whatsappSvc, cfg.WhatsApp.WebhookVerifyToken, log)
+	whatsappHdlr := whatsappHandler.NewHandler(whatsappHandler.HandlerConfig{
+		WhatsAppSvc:        whatsappSvc,
+		ConversationSvc:    conversationSvc,
+		DocumentSvc:        documentSvc,
+		WebhookVerifyToken: cfg.WhatsApp.WebhookVerifyToken,
+		Log:                log,
+	})
 	documentHdlr := documentHandler.NewHandler(documentSvc, log)
 	ragHdlr := ragHandler.NewHandler(documentSvc, log)
+	authHdlr := authHandler.NewHandler(userSvc, log)
+	conversationHdlr := conversationHandler.NewHandler(conversationSvc, log)
+
+	// Initialize auth middleware
+	authMw := middleware.AuthMiddleware(userSvc)
+	adminMw := middleware.RequireRole("admin")
 
 	// Initialize rate limiter (100 requests per minute per IP)
 	rateLimiter := middleware.NewRateLimiter(100, time.Minute)
@@ -106,9 +156,27 @@ func main() {
 	})
 
 	v1 := engine.Group("/api/v1")
+
+	// Public routes - auth endpoints
+	authHandler.Register(v1, authHdlr, authMw)
+
+	// Public routes - WhatsApp webhooks (uses its own verification)
 	whatsappHandler.Register(v1, whatsappHdlr)
-	documentHandler.Register(v1, documentHdlr)
-	ragHandler.Register(v1, ragHdlr)
+
+	// Protected routes - RAG query (authenticated users)
+	ragGroup := v1.Group("/rag")
+	ragGroup.Use(authMw)
+	ragHandler.Register(ragGroup, ragHdlr)
+
+	// Protected routes - Document management (admin only)
+	docGroup := v1.Group("/documents")
+	docGroup.Use(authMw, adminMw)
+	documentHandler.Register(docGroup, documentHdlr)
+
+	// Protected routes - Conversation history (admin only)
+	convGroup := v1.Group("/conversations")
+	convGroup.Use(authMw, adminMw)
+	conversationHandler.Register(convGroup, conversationHdlr)
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
 	server := &http.Server{

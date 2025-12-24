@@ -1,0 +1,87 @@
+<div class="conversation-detail-container">
+  <header class="page-header">
+    <div class="header-top">
+      <div class="title-section">
+        <a routerLink="/conversations" class="back-link">&larr; Back</a>
+        <h1>
+          @if (conversation()) {
+            {{ conversation()?.contact_name || 'Unknown Contact' }}
+          } @else {
+            Conversation
+          }
+        </h1>
+      </div>
+      <div class="user-menu">
+        @if (authService.user()) {
+          <span class="user-name">{{ authService.user()?.name }}</span>
+        }
+        <button class="logout-btn" (click)="logout()">Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="content">
+    @if (conversation()) {
+      <div class="conversation-info">
+        <div class="info-item">
+          <span class="label">Phone:</span>
+          <span class="value">{{ conversation()?.phone_number }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Messages:</span>
+          <span class="value">{{ conversation()?.message_count }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">Last activity:</span>
+          <span class="value">{{ formatDate(conversation()?.last_message_at || '') }} {{ formatTime(conversation()?.last_message_at || '') }}</span>
+        </div>
+      </div>
+    }
+
+    @if (loading()) {
+      <div class="loading">
+        <div class="spinner"></div>
+        <span>Loading messages...</span>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="error-message">
+        {{ error() }}
+        <button (click)="loadMessages()">Retry</button>
+      </div>
+    }
+
+    @if (!loading() && !error()) {
+      <div class="messages-container">
+        @if (messages().length === 0) {
+          <div class="empty-state">
+            <p>No messages in this conversation.</p>
+          </div>
+        } @else {
+          <div class="messages-list">
+            @for (msg of messages(); track msg.id) {
+              <div class="message" [class.incoming]="msg.direction === 'incoming'" [class.outgoing]="msg.direction === 'outgoing'">
+                <div class="message-bubble">
+                  <div class="message-content">{{ msg.content }}</div>
+                  @if (msg.direction === 'outgoing' && msg.rag_answer) {
+                    <div class="rag-indicator">RAG Response</div>
+                  }
+                  <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
+                </div>
+              </div>
+            }
+          </div>
+
+          @if (total() > limit) {
+            <div class="pagination">
+              <button (click)="prevPage()" [disabled]="offset === 0">Newer</button>
+              <span>{{ offset + 1 }} - {{ rangeEnd }} of {{ total() }}</span>
+              <button (click)="nextPage()" [disabled]="offset + limit >= total()">Older</button>
+            </div>
+          }
+        }
+      </div>
+    }
+  </main>
+</div>

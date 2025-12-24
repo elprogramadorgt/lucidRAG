@@ -1,9 +1,19 @@
 <div class="dashboard-container">
   <header class="dashboard-header">
-    <h1>{{ title }}</h1>
+    <div class="header-top">
+      <h1>{{ title }}</h1>
+      <div class="user-menu">
+        @if (authService.user()) {
+          <span class="user-name">{{ authService.user()?.name }}</span>
+          <span class="user-role">{{ authService.user()?.role }}</span>
+        }
+        <button class="logout-btn" (click)="logout()">Logout</button>
+      </div>
+    </div>
     <nav>
-      <a routerLink="/documents" routerLinkActive="active">Documents</a>
-      <a routerLink="/query" routerLinkActive="active">Query RAG</a>
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
+      <a routerLink="/documents/new" routerLinkActive="active">Add Document</a>
+      <a routerLink="/conversations" routerLinkActive="active">Conversations</a>
     </nav>
   </header>
 

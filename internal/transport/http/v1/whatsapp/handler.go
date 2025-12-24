@@ -3,6 +3,8 @@ package whatsapp
 import (
 	"net/http"
 
+	conversationDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/conversation"
+	documentDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/document"
 	whatsappDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/whatsapp"
 	"github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/whatsapp/dto"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
@@ -11,15 +13,27 @@ import (
 
 type Handler struct {
 	svc                whatsappDomain.Service
+	convSvc            conversationDomain.Service
+	docSvc             documentDomain.Service
 	webhookVerifyToken string
 	log                *logger.Logger
 }
 
-func NewHandler(svc whatsappDomain.Service, webhookVerifyToken string, log *logger.Logger) *Handler {
+type HandlerConfig struct {
+	WhatsAppSvc        whatsappDomain.Service
+	ConversationSvc    conversationDomain.Service
+	DocumentSvc        documentDomain.Service
+	WebhookVerifyToken string
+	Log                *logger.Logger
+}
+
+func NewHandler(cfg HandlerConfig) *Handler {
 	return &Handler{
-		svc:                svc,
-		webhookVerifyToken: webhookVerifyToken,
-		log:                log.With("handler", "whatsapp"),
+		svc:                cfg.WhatsAppSvc,
+		convSvc:            cfg.ConversationSvc,
+		docSvc:             cfg.DocumentSvc,
+		webhookVerifyToken: cfg.WebhookVerifyToken,
+		log:                cfg.Log.With("handler", "whatsapp"),
 	}
 }
 
@@ -83,10 +97,63 @@ func (h *Handler) processMessage(ctx *gin.Context, msg dto.Message, contacts []d
 		"message_id", msg.ID,
 	)
 
-	if msg.Type == "text" && msg.Text != nil {
-		h.log.Debug("text message content",
-			"message_id", msg.ID,
-			"body", msg.Text.Body,
-		)
+	if msg.Type != "text" || msg.Text == nil {
+		return
 	}
+
+	content := msg.Text.Body
+
+	if h.convSvc == nil {
+		h.log.Debug("conversation service not configured, skipping message persistence")
+		return
+	}
+
+	savedMsg, err := h.convSvc.SaveIncomingMessage(
+		ctx.Request.Context(),
+		msg.From,
+		senderName,
+		msg.ID,
+		content,
+		msg.Type,
+	)
+	if err != nil {
+		h.log.Error("failed to save incoming message", "error", err)
+		return
+	}
+
+	h.log.Info("message saved", "message_id", savedMsg.ID, "conversation_id", savedMsg.ConversationID)
+
+	if h.docSvc == nil {
+		h.log.Debug("document service not configured, skipping RAG query")
+		return
+	}
+
+	ragQuery := documentDomain.RAGQuery{
+		Query:     content,
+		TopK:      5,
+		Threshold: 0.7,
+	}
+
+	ragResponse, err := h.docSvc.QueryRAG(ctx.Request.Context(), ragQuery)
+	if err != nil {
+		h.log.Error("failed to query RAG", "error", err)
+		return
+	}
+
+	_, err = h.convSvc.SaveOutgoingMessage(
+		ctx.Request.Context(),
+		savedMsg.ConversationID,
+		ragResponse.Answer,
+		ragResponse.Answer,
+	)
+	if err != nil {
+		h.log.Error("failed to save outgoing message", "error", err)
+		return
+	}
+
+	h.log.Info("RAG response saved",
+		"conversation_id", savedMsg.ConversationID,
+		"confidence", ragResponse.ConfidenceScore,
+		"processing_time_ms", ragResponse.ProcessingTimeMs,
+	)
 }

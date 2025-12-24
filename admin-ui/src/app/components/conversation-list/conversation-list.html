@@ -1,0 +1,83 @@
+<div class="conversation-list-container">
+  <header class="page-header">
+    <div class="header-top">
+      <h1>Conversations</h1>
+      <div class="user-menu">
+        @if (authService.user()) {
+          <span class="user-name">{{ authService.user()?.name }}</span>
+          <span class="user-role">{{ authService.user()?.role }}</span>
+        }
+        <button class="logout-btn" (click)="logout()">Logout</button>
+      </div>
+    </div>
+    <nav>
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Dashboard</a>
+      <a routerLink="/documents/new" routerLinkActive="active">Add Document</a>
+      <a routerLink="/conversations" routerLinkActive="active">Conversations</a>
+    </nav>
+  </header>
+
+  <main class="content">
+    @if (loading()) {
+      <div class="loading">
+        <div class="spinner"></div>
+        <span>Loading conversations...</span>
+      </div>
+    }
+
+    @if (error()) {
+      <div class="error-message">
+        {{ error() }}
+        <button (click)="loadConversations()">Retry</button>
+      </div>
+    }
+
+    @if (!loading() && !error()) {
+      <div class="conversations-card">
+        <div class="card-header">
+          <h2>WhatsApp Conversations</h2>
+          <span class="count">{{ total() }} total</span>
+        </div>
+
+        @if (conversations().length === 0) {
+          <div class="empty-state">
+            <p>No conversations yet. Messages will appear here when users interact with your WhatsApp bot.</p>
+          </div>
+        } @else {
+          <div class="conversations-table">
+            <table>
+              <thead>
+                <tr>
+                  <th>Contact</th>
+                  <th>Phone Number</th>
+                  <th>Messages</th>
+                  <th>Last Message</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (conv of conversations(); track conv.id) {
+                  <tr>
+                    <td class="contact-name">{{ conv.contact_name || 'Unknown' }}</td>
+                    <td class="phone">{{ conv.phone_number }}</td>
+                    <td class="count">{{ conv.message_count }}</td>
+                    <td class="date">{{ formatDate(conv.last_message_at) }}</td>
+                    <td class="actions">
+                      <a [routerLink]="['/conversations', conv.id]" class="view-btn">View</a>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <button (click)="prevPage()" [disabled]="offset === 0">Previous</button>
+            <span>Page {{ currentPage }} of {{ totalPages }}</span>
+            <button (click)="nextPage()" [disabled]="offset + limit >= total()">Next</button>
+          </div>
+        }
+      </div>
+    }
+  </main>
+</div>
