@@ -3,34 +3,90 @@ package whatsapp
 import (
 	"net/http"
 
-	whatsappApp "github.com/elprogramadorgt/lucidRAG/internal/domain/whatsapp"
+	whatsappDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/whatsapp"
 	"github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/whatsapp/dto"
+	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 type Handler struct {
-	svc                whatsappApp.Service
+	svc                whatsappDomain.Service
 	webhookVerifyToken string
+	log                *logger.Logger
 }
 
-func NewHandler(svc whatsappApp.Service, webhookVerifyToken string) *Handler {
-	return &Handler{svc: svc, webhookVerifyToken: webhookVerifyToken}
+func NewHandler(svc whatsappDomain.Service, webhookVerifyToken string, log *logger.Logger) *Handler {
+	return &Handler{
+		svc:                svc,
+		webhookVerifyToken: webhookVerifyToken,
+		log:                log.With("handler", "whatsapp"),
+	}
 }
 
 func (h *Handler) HandleWebhookVerification(ctx *gin.Context) {
 	var request dto.HookRequest
 	if err := ctx.ShouldBindQuery(&request); err != nil {
-		logrus.Error(err)
+		h.log.Error("failed to bind query", "error", err)
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Bad Request"})
 		return
 	}
 
 	challenge, err := h.svc.VerifyWebhook(mapToHookInput(request), h.webhookVerifyToken)
 	if err != nil {
+		h.log.Warn("webhook verification failed", "error", err)
 		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, toHookVerificationDTO(challenge))
+}
+
+func (h *Handler) HandleIncomingMessage(ctx *gin.Context) {
+	var payload dto.WebhookPayload
+	if err := ctx.ShouldBindJSON(&payload); err != nil {
+		h.log.Error("failed to parse webhook payload", "error", err)
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Bad Request"})
+		return
+	}
+
+	if payload.Object != "whatsapp_business_account" {
+		h.log.Warn("unexpected webhook object type", "object", payload.Object)
+		ctx.JSON(http.StatusOK, gin.H{"status": "ignored"})
+		return
+	}
+
+	for _, entry := range payload.Entry {
+		for _, change := range entry.Changes {
+			for _, msg := range change.Value.Messages {
+				h.processMessage(ctx, msg, change.Value.Contacts)
+			}
+		}
+	}
+
+	ctx.JSON(http.StatusOK, gin.H{"status": "received"})
+}
+
+func (h *Handler) processMessage(ctx *gin.Context, msg dto.Message, contacts []dto.Contact) {
+	var senderName string
+	for _, c := range contacts {
+		if c.WaID == msg.From {
+			senderName = c.Profile.Name
+			break
+		}
+	}
+
+	h.log.Info("received message",
+		"request_id", ctx.GetString("request_id"),
+		"from", msg.From,
+		"sender_name", senderName,
+		"type", msg.Type,
+		"message_id", msg.ID,
+	)
+
+	if msg.Type == "text" && msg.Text != nil {
+		h.log.Debug("text message content",
+			"message_id", msg.ID,
+			"body", msg.Text.Body,
+		)
+	}
 }

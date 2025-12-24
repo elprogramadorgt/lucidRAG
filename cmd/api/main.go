@@ -59,7 +59,7 @@ func main() {
 
 	whatsappRepo := mongo.NewWhatsappRepo(dbClient)
 	whatsappSvc := whatsapp.NewService(whatsappRepo)
-	whatsappHdlr := whatsappHandler.NewHandler(whatsappSvc, cfg.WhatsApp.WebhookVerifyToken)
+	whatsappHdlr := whatsappHandler.NewHandler(whatsappSvc, cfg.WhatsApp.WebhookVerifyToken, log)
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -120,6 +120,10 @@ func main() {
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		log.Error("Server forced to shutdown", "error", err)
 		os.Exit(1)
+	}
+
+	if err := dbClient.Close(shutdownCtx); err != nil {
+		log.Error("Failed to close database connection", "error", err)
 	}
 
 	log.Info("Server stopped")

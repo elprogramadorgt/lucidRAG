@@ -4,7 +4,7 @@ go 1.24.11
 
 require (
 	github.com/gin-gonic/gin v1.11.0
-	github.com/sirupsen/logrus v1.9.3
+	github.com/google/uuid v1.6.0
 	go.mongodb.org/mongo-driver v1.17.6
 )
 
@@ -20,7 +20,6 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect

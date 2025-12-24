@@ -99,7 +99,29 @@ func Load() (*Config, error) {
 		},
 	}
 
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+
 	return config, nil
+}
+
+func (c *Config) Validate() error {
+	var missing []string
+
+	if c.Database.Password == "" {
+		missing = append(missing, "DB_PASSWORD")
+	}
+
+	if c.WhatsApp.WebhookVerifyToken == "" {
+		missing = append(missing, "WHATSAPP_WEBHOOK_VERIFY_TOKEN")
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required environment variables: %v", missing)
+	}
+
+	return nil
 }
 
 // getEnv retrieves an environment variable or returns a default value

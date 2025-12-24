@@ -28,6 +28,10 @@ func (c *DbClient) Ping(ctx context.Context) error {
 	return c.client.Ping(ctx, nil)
 }
 
+func (c *DbClient) Close(ctx context.Context) error {
+	return c.client.Disconnect(ctx)
+}
+
 func (c *DbClient) WithTimeout(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, 10*time.Second)
 }
