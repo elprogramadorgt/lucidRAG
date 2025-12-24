@@ -8,19 +8,19 @@ services:
     env_file:
       - .env
     depends_on:
-      - postgres
+      - mongodb
     restart: unless-stopped
 
-  postgres:
-    image: postgres:15-alpine
+  mongodb:
+    image: mongo:7-jammy
     environment:
-      POSTGRES_DB: lucidrag
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      MONGO_INITDB_ROOT_USERNAME: lucidrag
+      MONGO_INITDB_ROOT_PASSWORD: lucidrag
+      MONGO_INITDB_DATABASE: lucidrag
     ports:
-      - "5432:5432"
+      - "27017:27017"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - mongodb_data:/data/db
     restart: unless-stopped
 
   admin-ui:
@@ -34,4 +34,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  postgres_data:
+  mongodb_data:

@@ -55,7 +55,7 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
-	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
+	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "27017"))
 	if err != nil {
 		return nil, fmt.Errorf("invalid DB_PORT: %w", err)
 	}
@@ -90,11 +90,11 @@ func Load() (*Config, error) {
 			ChunkOverlap:   chunkOverlap,
 		},
 		Database: DatabaseConfig{
-			Type:     getEnv("DB_TYPE", "postgres"),
+			Type:     getEnv("DB_TYPE", "mongodb"),
 			Host:     getEnv("DB_HOST", "localhost"),
 			Port:     dbPort,
 			Name:     getEnv("DB_NAME", "lucidrag"),
-			User:     getEnv("DB_USER", "postgres"),
+			User:     getEnv("DB_USER", "lucidrag"),
 			Password: getEnv("DB_PASSWORD", ""),
 		},
 	}

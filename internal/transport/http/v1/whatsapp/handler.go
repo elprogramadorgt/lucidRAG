@@ -9,24 +9,26 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type Handler struct{ svc whatsappApp.Service }
+type Handler struct {
+	svc                whatsappApp.Service
+	webhookVerifyToken string
+}
 
-func NewHandler(svc whatsappApp.Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc whatsappApp.Service, webhookVerifyToken string) *Handler {
+	return &Handler{svc: svc, webhookVerifyToken: webhookVerifyToken}
+}
 
 func (h *Handler) HandleWebhookVerification(ctx *gin.Context) {
-
 	var request dto.HookRequest
 	if err := ctx.ShouldBindQuery(&request); err != nil {
 		logrus.Error(err)
 		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Bad Request"})
 		return
-
 	}
 
-	// h.svc.VerifyWebhook(mapToHookInput(req))
-	challenge, err := h.svc.VerifyWebhook(mapToHookInput(request))
+	challenge, err := h.svc.VerifyWebhook(mapToHookInput(request), h.webhookVerifyToken)
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		ctx.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
 		return
 	}
 
