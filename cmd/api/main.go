@@ -20,185 +20,116 @@ import (
 	conversationHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/conversation"
 	documentHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/document"
 	ragHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/rag"
+	systemHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/system"
 	whatsappHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/whatsapp"
 	"github.com/elprogramadorgt/lucidRAG/pkg/chunker"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 	"github.com/elprogramadorgt/lucidRAG/pkg/openai"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
+var version = "dev" // set via -ldflags at build time
+
 func main() {
+	startTime := time.Now()
 	_ = godotenv.Load()
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load configuration: %v\n", err)
+		fmt.Fprintf(os.Stderr, "config: %v\n", err)
 		os.Exit(1)
 	}
-
-	logOpts := logger.Options{
-		Level: "info",
-		JSON:  cfg.Server.Environment == "production",
-	}
-	if cfg.Server.Environment == "development" {
-		logOpts.Level = "debug"
-	}
-
-	log := logger.New(logOpts)
-	log.Info("Starting lucidRAG service", "environment", cfg.Server.Environment)
 
 	if cfg.Server.Environment == "production" {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
 	ctx := context.Background()
-
-	fmt.Println("Connecting to MongoDB...")
-	fmt.Println("DB Host:", cfg.Database.Host)
-	fmt.Println("DB Port:", cfg.Database.Port)
-	fmt.Println("DB Name:", cfg.Database.Name)
-	fmt.Println("DB User:", cfg.Database.User)
-	// Do not log the password for security reasons
 	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin",
-		cfg.Database.User,
-		cfg.Database.Password,
-		cfg.Database.Host,
-		cfg.Database.Port,
-		cfg.Database.Name,
-	)
+		cfg.Database.User, cfg.Database.Password, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name)
 
-	dbClient, err := mongo.NewClient(ctx, mongoURI, cfg.Database.Name)
+	db, err := mongo.NewClient(ctx, mongoURI, cfg.Database.Name)
 	if err != nil {
-		log.Error("Failed to connect to MongoDB", "error", err)
+		fmt.Fprintf(os.Stderr, "mongo: %v\n", err)
 		os.Exit(1)
 	}
-	log.Info("Connected to MongoDB", "host", cfg.Database.Host, "database", cfg.Database.Name)
 
-	// Initialize repositories
-	whatsappRepo := mongo.NewWhatsappRepo(dbClient)
-	documentRepo := mongo.NewDocumentRepo(dbClient)
-	chunkRepo := mongo.NewChunkRepo(dbClient)
-	userRepo := mongo.NewUserRepo(dbClient)
-	conversationRepo := mongo.NewConversationRepo(dbClient)
-	messageRepo := mongo.NewMessageRepo(dbClient)
+	logRepo := mongo.NewLogRepo(db)
+	log := logger.New(logger.Options{
+		Level: logLevel(cfg.Server.Environment),
+		JSON:  cfg.Server.Environment == "production",
+		Store: logRepo,
+	})
 
-	// Initialize OpenAI client (optional - RAG will be disabled if not configured)
 	var openaiClient *openai.Client
 	if cfg.RAG.OpenAIAPIKey != "" {
 		openaiClient = openai.NewClient(cfg.RAG.OpenAIAPIKey)
-		log.Info("OpenAI client initialized for RAG")
-	} else {
-		log.Info("OPENAI_API_KEY not set - RAG functionality will be disabled")
 	}
 
-	// Initialize chunker for document processing
-	textChunker := chunker.New(cfg.RAG.ChunkSize, cfg.RAG.ChunkOverlap)
-
-	// Initialize services
-	whatsappSvc := whatsapp.NewService(whatsappRepo)
+	whatsappSvc := whatsapp.NewService(mongo.NewWhatsappRepo(db))
 	documentSvc := docApp.NewService(docApp.ServiceConfig{
-		Repo:           documentRepo,
-		ChunkRepo:      chunkRepo,
-		OpenAIClient:   openaiClient,
-		Chunker:        textChunker,
-		EmbeddingModel: cfg.RAG.EmbeddingModel,
-		ModelName:      cfg.RAG.ModelName,
+		Repo: mongo.NewDocumentRepo(db), ChunkRepo: mongo.NewChunkRepo(db),
+		OpenAIClient: openaiClient, Chunker: chunker.New(cfg.RAG.ChunkSize, cfg.RAG.ChunkOverlap),
+		EmbeddingModel: cfg.RAG.EmbeddingModel, ModelName: cfg.RAG.ModelName,
 	})
 	userSvc := userApp.NewService(userApp.ServiceConfig{
-		Repo:      userRepo,
-		JWTSecret: cfg.Auth.JWTSecret,
+		Repo: mongo.NewUserRepo(db), JWTSecret: cfg.Auth.JWTSecret,
 		JWTExpiry: time.Duration(cfg.Auth.JWTExpiryHours) * time.Hour,
 	})
 	conversationSvc := convApp.NewService(convApp.ServiceConfig{
-		ConvRepo: conversationRepo,
-		MsgRepo:  messageRepo,
+		ConvRepo: mongo.NewConversationRepo(db), MsgRepo: mongo.NewMessageRepo(db),
 	})
 
-	// Initialize handlers
 	whatsappHdlr := whatsappHandler.NewHandler(whatsappHandler.HandlerConfig{
-		WhatsAppSvc:        whatsappSvc,
-		ConversationSvc:    conversationSvc,
-		DocumentSvc:        documentSvc,
-		WebhookVerifyToken: cfg.WhatsApp.WebhookVerifyToken,
-		Log:                log,
+		WhatsAppSvc: whatsappSvc, ConversationSvc: conversationSvc, DocumentSvc: documentSvc,
+		WebhookVerifyToken: cfg.WhatsApp.WebhookVerifyToken, Log: log,
 	})
-	documentHdlr := documentHandler.NewHandler(documentSvc, log)
-	ragHdlr := ragHandler.NewHandler(documentSvc, log)
-	authHdlr := authHandler.NewHandler(userSvc, log)
-	conversationHdlr := conversationHandler.NewHandler(conversationSvc, log)
 
-	// Initialize auth middleware
-	authMw := middleware.AuthMiddleware(userSvc)
-	adminMw := middleware.RequireRole("admin")
-
-	// Initialize rate limiter (100 requests per minute per IP)
+	authMw, adminMw := middleware.AuthMiddleware(userSvc), middleware.RequireRole("admin")
 	rateLimiter := middleware.NewRateLimiter(100, time.Minute)
 
-	engine := gin.New()
-	engine.Use(gin.Recovery())
-	engine.Use(requestIDMiddleware())
-	engine.Use(loggingMiddleware(log))
-	engine.Use(corsMiddleware())
-	engine.Use(middleware.RateLimit(rateLimiter))
+	r := gin.New()
+	r.Use(gin.Recovery(), middleware.RequestID(), middleware.Logger(log))
+	r.Use(middleware.CORS([]string{"http://localhost:4200", "http://localhost:8080"}))
+	r.Use(middleware.RateLimit(rateLimiter))
 
-	engine.GET("/healthz", func(c *gin.Context) {
+	r.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
+	r.GET("/readyz", func(c *gin.Context) {
+		if err := db.Ping(c.Request.Context()); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "error"})
+			return
+		}
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	engine.GET("/readyz", func(c *gin.Context) {
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
-		defer cancel()
-
-		if err := dbClient.Ping(ctx); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{
-				"status":   "error",
-				"database": "disconnected",
-			})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{
-			"status":   "ok",
-			"database": "connected",
-		})
-	})
-
-	v1 := engine.Group("/api/v1")
-
-	// Public routes - auth endpoints
-	authHandler.Register(v1, authHdlr, authMw)
-
-	// Public routes - WhatsApp webhooks (uses its own verification)
+	v1 := r.Group("/api/v1")
+	cookieCfg := authHandler.CookieConfig{
+		Domain:      cfg.Auth.CookieDomain,
+		Secure:      cfg.Auth.CookieSecure,
+		ExpiryHours: cfg.Auth.JWTExpiryHours,
+	}
+	authHandler.Register(v1, authHandler.NewHandler(userSvc, log, cookieCfg), authMw)
+	authHandler.RegisterOAuth(v1, authHandler.NewOAuthHandler(userSvc, log, cfg.Auth.OAuth, cookieCfg))
 	whatsappHandler.Register(v1, whatsappHdlr)
-
-	// Protected routes - RAG query (authenticated users)
-	ragGroup := v1.Group("/rag")
-	ragGroup.Use(authMw)
-	ragHandler.Register(ragGroup, ragHdlr)
-
-	// Protected routes - Document management (admin only)
-	docGroup := v1.Group("/documents")
-	docGroup.Use(authMw, adminMw)
-	documentHandler.Register(docGroup, documentHdlr)
-
-	// Protected routes - Conversation history (admin only)
-	convGroup := v1.Group("/conversations")
-	convGroup.Use(authMw, adminMw)
-	conversationHandler.Register(convGroup, conversationHdlr)
+	ragHandler.Register(v1.Group("/rag", authMw), ragHandler.NewHandler(documentSvc, log))
+	documentHandler.Register(v1.Group("/documents", authMw), documentHandler.NewHandler(documentSvc, log))
+	conversationHandler.Register(v1.Group("/conversations", authMw), conversationHandler.NewHandler(conversationSvc, log))
+	systemHandler.Register(v1.Group("/system", authMw, adminMw), systemHandler.NewHandler(systemHandler.HandlerConfig{
+		Repo:        logRepo,
+		DB:          db,
+		Log:         log,
+		StartTime:   startTime,
+		Environment: cfg.Server.Environment,
+		Version:     version,
+	}))
 
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
-	server := &http.Server{
-		Addr:         addr,
-		Handler:      engine,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
+	srv := &http.Server{Addr: addr, Handler: r, ReadTimeout: 15 * time.Second, WriteTimeout: 15 * time.Second}
 
 	go func() {
-		log.Info("Server listening", "address", addr)
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error("Server failed", "error", err)
+		log.Info("listening", "addr", addr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Error("server", "error", err)
 			os.Exit(1)
 		}
 	}()
@@ -207,77 +138,16 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Info("Shutting down server")
-
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-
-	if err := server.Shutdown(shutdownCtx); err != nil {
-		log.Error("Server forced to shutdown", "error", err)
-		os.Exit(1)
-	}
-
+	_ = srv.Shutdown(shutdownCtx)
 	rateLimiter.Stop()
-
-	if err := dbClient.Close(shutdownCtx); err != nil {
-		log.Error("Failed to close database connection", "error", err)
-	}
-
-	log.Info("Server stopped")
+	_ = db.Close(shutdownCtx)
 }
 
-func requestIDMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		requestID := c.GetHeader("X-Request-ID")
-		if requestID == "" {
-			requestID = uuid.New().String()
-		}
-		c.Set("request_id", requestID)
-		c.Writer.Header().Set("X-Request-ID", requestID)
-		c.Next()
+func logLevel(env string) string {
+	if env == "development" {
+		return "debug"
 	}
-}
-
-func loggingMiddleware(log *logger.Logger) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-		path := c.Request.URL.Path
-
-		c.Next()
-
-		log.Info("request completed",
-			"request_id", c.GetString("request_id"),
-			"method", c.Request.Method,
-			"path", path,
-			"status", c.Writer.Status(),
-			"duration_ms", time.Since(start).Milliseconds(),
-			"client_ip", c.ClientIP(),
-		)
-	}
-}
-
-func corsMiddleware() gin.HandlerFunc {
-	allowedOrigins := map[string]bool{
-		"http://localhost:4200": true,
-		"http://localhost:8080": true,
-	}
-
-	return func(c *gin.Context) {
-		origin := c.Request.Header.Get("Origin")
-
-		if allowedOrigins[origin] {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		}
-
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-Request-ID")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-
-		c.Next()
-	}
+	return "info"
 }

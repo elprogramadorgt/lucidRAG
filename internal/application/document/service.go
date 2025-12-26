@@ -16,6 +16,7 @@ import (
 var (
 	ErrDocumentNotFound = errors.New("document not found")
 	ErrInvalidQuery     = errors.New("invalid query")
+	ErrForbidden        = errors.New("access denied")
 )
 
 type service struct {
@@ -57,7 +58,9 @@ func NewService(cfg ServiceConfig) documentDomain.Service {
 	}
 }
 
-func (s *service) CreateDocument(ctx context.Context, doc *documentDomain.Document) (string, error) {
+func (s *service) CreateDocument(ctx context.Context, userCtx documentDomain.UserContext, doc *documentDomain.Document) (string, error) {
+	doc.UserID = userCtx.UserID
+
 	id, err := s.repo.Create(ctx, doc)
 	if err != nil {
 		return "", err
@@ -103,7 +106,7 @@ func (s *service) createChunksForDocument(ctx context.Context, documentID, conte
 	return s.chunkRepo.CreateBatch(ctx, chunks)
 }
 
-func (s *service) GetDocument(ctx context.Context, id string) (*documentDomain.Document, error) {
+func (s *service) GetDocument(ctx context.Context, userCtx documentDomain.UserContext, id string) (*documentDomain.Document, error) {
 	doc, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -111,10 +114,15 @@ func (s *service) GetDocument(ctx context.Context, id string) (*documentDomain.D
 	if doc == nil {
 		return nil, ErrDocumentNotFound
 	}
+
+	if !userCtx.IsAdmin && doc.UserID != userCtx.UserID {
+		return nil, ErrForbidden
+	}
+
 	return doc, nil
 }
 
-func (s *service) ListDocuments(ctx context.Context, limit, offset int) ([]documentDomain.Document, int64, error) {
+func (s *service) ListDocuments(ctx context.Context, userCtx documentDomain.UserContext, limit, offset int) ([]documentDomain.Document, int64, error) {
 	if limit <= 0 {
 		limit = 10
 	}
@@ -125,12 +133,24 @@ func (s *service) ListDocuments(ctx context.Context, limit, offset int) ([]docum
 		offset = 0
 	}
 
-	docs, err := s.repo.List(ctx, limit, offset)
-	if err != nil {
-		return nil, 0, err
+	var docs []documentDomain.Document
+	var total int64
+	var err error
+
+	if userCtx.IsAdmin {
+		docs, err = s.repo.List(ctx, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
+		total, err = s.repo.Count(ctx)
+	} else {
+		docs, err = s.repo.ListByUser(ctx, userCtx.UserID, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
+		total, err = s.repo.CountByUser(ctx, userCtx.UserID)
 	}
 
-	total, err := s.repo.Count(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -138,7 +158,7 @@ func (s *service) ListDocuments(ctx context.Context, limit, offset int) ([]docum
 	return docs, total, nil
 }
 
-func (s *service) UpdateDocument(ctx context.Context, doc *documentDomain.Document) error {
+func (s *service) UpdateDocument(ctx context.Context, userCtx documentDomain.UserContext, doc *documentDomain.Document) error {
 	existing, err := s.repo.GetByID(ctx, doc.ID)
 	if err != nil {
 		return err
@@ -147,7 +167,12 @@ func (s *service) UpdateDocument(ctx context.Context, doc *documentDomain.Docume
 		return ErrDocumentNotFound
 	}
 
+	if !userCtx.IsAdmin && existing.UserID != userCtx.UserID {
+		return ErrForbidden
+	}
+
 	doc.UploadedAt = existing.UploadedAt
+	doc.UserID = existing.UserID
 
 	if err := s.repo.Update(ctx, doc); err != nil {
 		return err
@@ -168,13 +193,17 @@ func (s *service) UpdateDocument(ctx context.Context, doc *documentDomain.Docume
 	return nil
 }
 
-func (s *service) DeleteDocument(ctx context.Context, id string) error {
+func (s *service) DeleteDocument(ctx context.Context, userCtx documentDomain.UserContext, id string) error {
 	existing, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return err
 	}
 	if existing == nil {
 		return ErrDocumentNotFound
+	}
+
+	if !userCtx.IsAdmin && existing.UserID != userCtx.UserID {
+		return ErrForbidden
 	}
 
 	if s.chunkRepo != nil {

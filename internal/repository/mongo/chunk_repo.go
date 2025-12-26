@@ -44,7 +44,7 @@ func (r *ChunkRepo) GetByDocumentID(ctx context.Context, documentID string) ([]d
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var chunks []document.Chunk
 	if err := cursor.All(ctx, &chunks); err != nil {
@@ -68,7 +68,7 @@ func (r *ChunkRepo) Search(ctx context.Context, embedding []float64, topK int, t
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var allChunks []document.Chunk
 	if err := cursor.All(ctx, &allChunks); err != nil {

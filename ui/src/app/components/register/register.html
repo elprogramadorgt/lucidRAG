@@ -1,0 +1,208 @@
+<div
+  class="min-h-screen flex items-center justify-center p-4"
+  style="background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-primary) 50%, var(--color-bg-tertiary) 100%)"
+>
+  <!-- Theme Toggle and Language Switcher (top-right) -->
+  <div class="fixed top-4 right-4 flex items-center gap-2">
+    <app-language-switcher></app-language-switcher>
+    <app-theme-toggle [compact]="true"></app-theme-toggle>
+  </div>
+
+  <div class="w-full max-w-md animate-fade-in">
+    <!-- Logo and Title -->
+    <div class="text-center mb-8">
+      <div
+        class="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4"
+        style="background-color: var(--color-primary-600); box-shadow: var(--shadow-lg)"
+      >
+        <svg
+          class="w-8 h-8 text-white"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+          />
+        </svg>
+      </div>
+      <h1 class="text-3xl font-bold mb-2" style="color: var(--color-text-primary)">
+        {{ 'common.appName' | translate }}
+      </h1>
+      <p style="color: var(--color-text-secondary)">
+        {{ 'auth.registerSubtitle' | translate }}
+      </p>
+    </div>
+
+    <!-- Register Card -->
+    <div class="card animate-slide-up">
+      <form (ngSubmit)="onSubmit()" class="space-y-4">
+        <!-- Name Row -->
+        <div class="grid grid-cols-2 gap-4">
+          <!-- First Name -->
+          <div>
+            <label
+              for="firstName"
+              class="block text-sm font-medium mb-2"
+              style="color: var(--color-text-secondary)"
+            >
+              {{ 'auth.firstName' | translate }}
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              [value]="firstName()"
+              (input)="firstName.set($any($event.target).value)"
+              class="input"
+              required
+            />
+          </div>
+
+          <!-- Last Name -->
+          <div>
+            <label
+              for="lastName"
+              class="block text-sm font-medium mb-2"
+              style="color: var(--color-text-secondary)"
+            >
+              {{ 'auth.lastName' | translate }}
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              [value]="lastName()"
+              (input)="lastName.set($any($event.target).value)"
+              class="input"
+              required
+            />
+          </div>
+        </div>
+
+        <!-- Email Input -->
+        <div>
+          <label
+            for="email"
+            class="block text-sm font-medium mb-2"
+            style="color: var(--color-text-secondary)"
+          >
+            {{ 'auth.email' | translate }}
+          </label>
+          <input
+            id="email"
+            type="email"
+            [value]="email()"
+            (input)="email.set($any($event.target).value)"
+            class="input"
+            placeholder="you@example.com"
+            required
+          />
+        </div>
+
+        <!-- Password Input -->
+        <div>
+          <label
+            for="password"
+            class="block text-sm font-medium mb-2"
+            style="color: var(--color-text-secondary)"
+          >
+            {{ 'auth.password' | translate }}
+          </label>
+          <input
+            id="password"
+            type="password"
+            [value]="password()"
+            (input)="password.set($any($event.target).value)"
+            class="input"
+            placeholder="••••••••"
+            required
+          />
+          <p class="text-xs mt-1" style="color: var(--color-text-tertiary)">
+            {{ 'auth.passwordHint' | translate }}
+          </p>
+        </div>
+
+        <!-- Confirm Password Input -->
+        <div>
+          <label
+            for="confirmPassword"
+            class="block text-sm font-medium mb-2"
+            style="color: var(--color-text-secondary)"
+          >
+            {{ 'auth.confirmPassword' | translate }}
+          </label>
+          <input
+            id="confirmPassword"
+            type="password"
+            [value]="confirmPassword()"
+            (input)="confirmPassword.set($any($event.target).value)"
+            class="input"
+            placeholder="••••••••"
+            required
+          />
+        </div>
+
+        <!-- Error Message -->
+        @if (errorMessage()) {
+          <div
+            class="px-4 py-3 rounded-lg text-sm animate-fade-in"
+            style="background-color: var(--color-danger-50); border: 1px solid var(--color-danger-100); color: var(--color-danger-600)"
+          >
+            {{ errorMessage() }}
+          </div>
+        }
+
+        <!-- Submit Button -->
+        <button
+          type="submit"
+          [disabled]="isLoading()"
+          class="btn btn-primary w-full text-base py-3"
+        >
+          @if (isLoading()) {
+            <svg class="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
+              <circle
+                class="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                stroke-width="4"
+              ></circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            <span>{{ 'common.loading' | translate }}</span>
+          } @else {
+            <span>{{ 'auth.register' | translate }}</span>
+          }
+        </button>
+      </form>
+
+      <!-- Social Login -->
+      <div class="social-login-divider">
+        <span>{{ 'auth.orContinueWith' | translate }}</span>
+      </div>
+      <app-social-login-buttons></app-social-login-buttons>
+
+      <!-- Login Link -->
+      <div class="mt-6 pt-6 border-t text-center" style="border-color: var(--color-border-primary)">
+        <p class="text-sm" style="color: var(--color-text-secondary)">
+          {{ 'auth.hasAccount' | translate }}
+          <a routerLink="/login" class="font-medium" style="color: var(--color-primary-600)">
+            {{ 'auth.login' | translate }}
+          </a>
+        </p>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <p class="text-center text-sm mt-6" style="color: var(--color-text-tertiary)">
+      Powered by ElProgramadorGT
+    </p>
+  </div>
+</div>

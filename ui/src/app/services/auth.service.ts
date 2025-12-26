@@ -1,42 +1,53 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap } from 'rxjs';
-import { LoginRequest, LoginResponse, User } from '../models/user.model';
+import { Observable, tap, catchError, of, map } from 'rxjs';
+import { LoginRequest, RegisterRequest, LoginResponse, User } from '../models/user.model';
 import { environment } from '../../environments/environment';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
-  private readonly TOKEN_KEY = 'lucidrag_auth_token';
   private readonly USER_KEY = 'lucidrag_user';
 
   currentUser = signal<User | null>(null);
   isAuthenticated = signal<boolean>(false);
+  isInitialized = signal<boolean>(false);
 
   constructor(private http: HttpClient, private router: Router) {
-    this.loadUserFromStorage();
+    this.initSession();
   }
 
   login(credentials: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${environment.apiUrl}/v1/auth/login`, credentials).pipe(
       tap((response) => {
-        this.setSession(response);
+        this.setUser(response.user);
+      })
+    );
+  }
+
+  register(data: RegisterRequest): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${environment.apiUrl}/v1/auth/register`, data).pipe(
+      tap((response) => {
+        this.setUser(response.user);
       })
     );
   }
 
   logout(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-    localStorage.removeItem(this.USER_KEY);
-    this.currentUser.set(null);
-    this.isAuthenticated.set(false);
-    this.router.navigate(['/login']);
-  }
-
-  getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
+    // Call backend to clear cookie
+    this.http.post(`${environment.apiUrl}/v1/auth/logout`, {}).subscribe({
+      complete: () => {
+        this.clearSession();
+        this.router.navigate(['/login']);
+      },
+      error: () => {
+        // Clear local state even if backend call fails
+        this.clearSession();
+        this.router.navigate(['/login']);
+      }
+    });
   }
 
   hasPermission(requiredRole: 'admin' | 'user'): boolean {
@@ -57,25 +68,56 @@ export class AuthService {
     return this.hasPermission('admin');
   }
 
-  private setSession(response: LoginResponse): void {
-    localStorage.setItem(this.TOKEN_KEY, response.token);
-    localStorage.setItem(this.USER_KEY, JSON.stringify(response.user));
-    this.currentUser.set(response.user);
+  validateSession(): Observable<boolean> {
+    return this.http.get<User>(`${environment.apiUrl}/v1/auth/me`).pipe(
+      tap((user) => {
+        if (user) {
+          this.setUser(user);
+        }
+      }),
+      map((user) => !!user),
+      catchError(() => {
+        this.clearSession();
+        return of(false);
+      })
+    );
+  }
+
+  private setUser(user: User): void {
+    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    this.currentUser.set(user);
     this.isAuthenticated.set(true);
   }
 
-  private loadUserFromStorage(): void {
-    const token = this.getToken();
-    const userJson = localStorage.getItem(this.USER_KEY);
+  private clearSession(): void {
+    localStorage.removeItem(this.USER_KEY);
+    this.currentUser.set(null);
+    this.isAuthenticated.set(false);
+  }
 
-    if (token && userJson) {
+  private initSession(): void {
+    // First, try to load cached user for quick UI
+    const userJson = localStorage.getItem(this.USER_KEY);
+    if (userJson) {
       try {
-        const user = JSON.parse(userJson) as User;
-        this.currentUser.set(user);
+        const cachedUser = JSON.parse(userJson) as User;
+        this.currentUser.set(cachedUser);
         this.isAuthenticated.set(true);
-      } catch (e) {
-        this.logout();
+      } catch {
+        localStorage.removeItem(this.USER_KEY);
       }
     }
+
+    // Validate session with backend (cookie will be sent automatically)
+    this.http.get<User>(`${environment.apiUrl}/v1/auth/me`).pipe(
+      catchError(() => of(null))
+    ).subscribe((user) => {
+      if (user) {
+        this.setUser(user);
+      } else {
+        this.clearSession();
+      }
+      this.isInitialized.set(true);
+    });
   }
 }

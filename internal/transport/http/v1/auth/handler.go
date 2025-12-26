@@ -8,19 +8,55 @@ import (
 	userDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/user"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
-type Handler struct {
-	svc userDomain.Service
-	log *logger.Logger
+const cookieName = "lucidrag_token"
+
+type CookieConfig struct {
+	Domain      string
+	Secure      bool
+	ExpiryHours int
 }
 
-func NewHandler(svc userDomain.Service, log *logger.Logger) *Handler {
+type Handler struct {
+	svc          userDomain.Service
+	log          *logger.Logger
+	cookieConfig CookieConfig
+}
+
+func NewHandler(svc userDomain.Service, log *logger.Logger, cookieCfg CookieConfig) *Handler {
 	return &Handler{
-		svc: svc,
-		log: log.With("handler", "auth"),
+		svc:          svc,
+		log:          log.With("handler", "auth"),
+		cookieConfig: cookieCfg,
 	}
+}
+
+func (h *Handler) setAuthCookie(ctx *gin.Context, token string) {
+	maxAge := h.cookieConfig.ExpiryHours * 3600
+	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetCookie(
+		cookieName,
+		token,
+		maxAge,
+		"/",
+		h.cookieConfig.Domain,
+		h.cookieConfig.Secure,
+		true, // HttpOnly
+	)
+}
+
+func (h *Handler) clearAuthCookie(ctx *gin.Context) {
+	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetCookie(
+		cookieName,
+		"",
+		-1,
+		"/",
+		h.cookieConfig.Domain,
+		h.cookieConfig.Secure,
+		true,
+	)
 }
 
 type registerRequest struct {
@@ -36,13 +72,13 @@ type loginRequest struct {
 }
 
 type authResponse struct {
-	Token string           `json:"token,omitempty"`
-	User  *userDomain.User `json:"user"`
+	User *userDomain.User `json:"user"`
 }
 
 func (h *Handler) Register(ctx *gin.Context) {
 	var req registerRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.log.Warn("registration_attempt", "status", "invalid_request", "ip", ctx.ClientIP(), "error", err.Error())
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
@@ -55,46 +91,56 @@ func (h *Handler) Register(ctx *gin.Context) {
 	})
 	if err != nil {
 		if errors.Is(err, userApp.ErrEmailExists) {
+			h.log.Warn("registration_attempt", "status", "failed", "email", req.Email, "ip", ctx.ClientIP(), "reason", "email_exists")
 			ctx.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
 			return
 		}
-		h.log.Error("failed to register user", "error", err)
+		h.log.Error("registration_attempt", "status", "error", "email", req.Email, "ip", ctx.ClientIP(), "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to register user"})
 		return
 	}
 
-	token, err := h.svc.Login(ctx.Request.Context(), req.Email, req.Password)
+	token, _, err := h.svc.Login(ctx.Request.Context(), req.Email, req.Password)
 	if err != nil {
-		h.log.Error("failed to generate token after registration", "error", err)
+		h.log.Error("registration_attempt", "status", "partial", "user_id", user.ID, "email", user.Email, "ip", ctx.ClientIP(), "error", "token_generation_failed")
 		ctx.JSON(http.StatusCreated, authResponse{User: user})
 		return
 	}
 
-	h.log.Info("user registered", "user_id", user.ID, "email", user.Email)
-	ctx.JSON(http.StatusCreated, authResponse{Token: token, User: user})
+	h.setAuthCookie(ctx, token)
+	h.log.Info("registration_attempt", "status", "success", "user_id", user.ID, "email", user.Email, "ip", ctx.ClientIP())
+	ctx.JSON(http.StatusCreated, authResponse{User: user})
 }
 
 func (h *Handler) Login(ctx *gin.Context) {
 	var req loginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		logrus.Error("invalid login request body: ", err)
+		h.log.Warn("login_attempt", "status", "invalid_request", "ip", ctx.ClientIP(), "error", err.Error())
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}
 
-	token, err := h.svc.Login(ctx.Request.Context(), req.Email, req.Password)
+	token, user, err := h.svc.Login(ctx.Request.Context(), req.Email, req.Password)
 	if err != nil {
 		if errors.Is(err, userApp.ErrInvalidCredentials) {
+			h.log.Warn("login_attempt", "status", "failed", "email", req.Email, "ip", ctx.ClientIP(), "reason", "invalid_credentials")
 			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
 			return
 		}
-		h.log.Error("failed to login", "error", err)
+		h.log.Error("login_attempt", "status", "error", "email", req.Email, "ip", ctx.ClientIP(), "error", err.Error())
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "login failed"})
 		return
 	}
 
-	h.log.Info("user logged in", "email", req.Email)
-	ctx.JSON(http.StatusOK, gin.H{"token": token})
+	h.setAuthCookie(ctx, token)
+	h.log.Info("login_attempt", "status", "success", "email", req.Email, "ip", ctx.ClientIP())
+	ctx.JSON(http.StatusOK, authResponse{User: user})
+}
+
+func (h *Handler) Logout(ctx *gin.Context) {
+	h.clearAuthCookie(ctx)
+	h.log.Info("logout", "ip", ctx.ClientIP())
+	ctx.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }
 
 func (h *Handler) Me(ctx *gin.Context) {

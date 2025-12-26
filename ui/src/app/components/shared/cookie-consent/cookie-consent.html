@@ -1,0 +1,30 @@
+@if (cookieConsentService.showBanner()) {
+  <div class="cookie-consent-overlay">
+    <div class="cookie-consent-banner">
+      <div class="cookie-consent-content">
+        <div class="cookie-consent-icon">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div class="cookie-consent-text">
+          <h3>{{ 'cookies.title' | translate }}</h3>
+          <p>{{ 'cookies.description' | translate }}</p>
+          <p class="cookie-consent-details">
+            {{ 'cookies.details' | translate }}
+            <a href="https://gdpr.eu/cookies/" target="_blank" rel="noopener">{{ 'cookies.learnMore' | translate }}</a>
+          </p>
+        </div>
+      </div>
+      <div class="cookie-consent-actions">
+        <button class="btn btn-secondary" (click)="decline()">
+          {{ 'cookies.essentialOnly' | translate }}
+        </button>
+        <button class="btn btn-primary" (click)="accept()">
+          {{ 'cookies.acceptAll' | translate }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

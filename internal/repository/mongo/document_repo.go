@@ -60,7 +60,7 @@ func (r *DocumentRepo) List(ctx context.Context, limit, offset int) ([]document.
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var docs []document.Document
 	if err := cursor.All(ctx, &docs); err != nil {
@@ -96,4 +96,32 @@ func (r *DocumentRepo) Delete(ctx context.Context, id string) error {
 
 func (r *DocumentRepo) Count(ctx context.Context) (int64, error) {
 	return r.collection.CountDocuments(ctx, bson.M{"is_active": true})
+}
+
+func (r *DocumentRepo) ListByUser(ctx context.Context, userID string, limit, offset int) ([]document.Document, error) {
+	opts := options.Find().
+		SetLimit(int64(limit)).
+		SetSkip(int64(offset)).
+		SetSort(bson.D{{Key: "uploaded_at", Value: -1}})
+
+	cursor, err := r.collection.Find(ctx, bson.M{"is_active": true, "user_id": userID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = cursor.Close(ctx) }()
+
+	var docs []document.Document
+	if err := cursor.All(ctx, &docs); err != nil {
+		return nil, err
+	}
+
+	if docs == nil {
+		docs = []document.Document{}
+	}
+
+	return docs, nil
+}
+
+func (r *DocumentRepo) CountByUser(ctx context.Context, userID string) (int64, error) {
+	return r.collection.CountDocuments(ctx, bson.M{"is_active": true, "user_id": userID})
 }

@@ -23,15 +23,29 @@ func NewHandler(svc conversationDomain.Service, log *logger.Logger) *Handler {
 	}
 }
 
+func getUserContext(ctx *gin.Context) conversationDomain.UserContext {
+	userID := ctx.GetString("user_id")
+	role := ctx.GetString("user_role")
+	return conversationDomain.UserContext{
+		UserID:  userID,
+		IsAdmin: role == "admin",
+	}
+}
+
 func (h *Handler) ListConversations(ctx *gin.Context) {
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(ctx.DefaultQuery("offset", "0"))
+	userCtx := getUserContext(ctx)
 
-	convs, total, err := h.svc.ListConversations(ctx.Request.Context(), limit, offset)
+	convs, total, err := h.svc.ListConversations(ctx.Request.Context(), userCtx, limit, offset)
 	if err != nil {
 		h.log.Error("failed to list conversations", "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to list conversations"})
 		return
+	}
+
+	if userCtx.IsAdmin {
+		h.log.Info("admin_activity", "action", "conversation_list", "admin_id", userCtx.UserID, "result_count", len(convs))
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
@@ -49,15 +63,24 @@ func (h *Handler) GetConversation(ctx *gin.Context) {
 		return
 	}
 
-	conv, err := h.svc.GetConversation(ctx.Request.Context(), id)
+	userCtx := getUserContext(ctx)
+	conv, err := h.svc.GetConversation(ctx.Request.Context(), userCtx, id)
 	if err != nil {
 		if errors.Is(err, convApp.ErrConversationNotFound) {
 			ctx.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
 			return
 		}
+		if errors.Is(err, convApp.ErrForbidden) {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			return
+		}
 		h.log.Error("failed to get conversation", "error", err, "id", id)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get conversation"})
 		return
+	}
+
+	if userCtx.IsAdmin && conv.UserID != userCtx.UserID {
+		h.log.Info("admin_activity", "action", "conversation_view", "admin_id", userCtx.UserID, "conversation_id", id, "owner_id", conv.UserID)
 	}
 
 	ctx.JSON(http.StatusOK, conv)
@@ -72,12 +95,25 @@ func (h *Handler) GetMessages(ctx *gin.Context) {
 
 	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
 	offset, _ := strconv.Atoi(ctx.DefaultQuery("offset", "0"))
+	userCtx := getUserContext(ctx)
 
-	msgs, total, err := h.svc.GetMessages(ctx.Request.Context(), id, limit, offset)
+	msgs, total, err := h.svc.GetMessages(ctx.Request.Context(), userCtx, id, limit, offset)
 	if err != nil {
+		if errors.Is(err, convApp.ErrConversationNotFound) {
+			ctx.JSON(http.StatusNotFound, gin.H{"error": "conversation not found"})
+			return
+		}
+		if errors.Is(err, convApp.ErrForbidden) {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "access denied"})
+			return
+		}
 		h.log.Error("failed to get messages", "error", err, "conversation_id", id)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get messages"})
 		return
+	}
+
+	if userCtx.IsAdmin {
+		h.log.Info("admin_activity", "action", "messages_view", "admin_id", userCtx.UserID, "conversation_id", id, "message_count", len(msgs))
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{

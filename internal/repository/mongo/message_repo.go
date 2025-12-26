@@ -58,7 +58,7 @@ func (r *MessageRepo) GetByConversationID(ctx context.Context, conversationID st
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var msgs []conversation.Message
 	if err := cursor.All(ctx, &msgs); err != nil {

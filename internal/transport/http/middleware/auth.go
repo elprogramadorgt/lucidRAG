@@ -8,21 +8,34 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const cookieName = "lucidrag_token"
+
 func AuthMiddleware(userSvc userDomain.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
+		var token string
+
+		// First, try to get token from cookie (primary method for browser clients)
+		if cookieToken, err := c.Cookie(cookieName); err == nil && cookieToken != "" {
+			token = cookieToken
+		}
+
+		// Fall back to Authorization header (for API clients)
+		if token == "" {
+			authHeader := c.GetHeader("Authorization")
+			if authHeader != "" {
+				parts := strings.Split(authHeader, " ")
+				if len(parts) == 2 && strings.ToLower(parts[0]) == "bearer" {
+					token = parts[1]
+				}
+			}
+		}
+
+		if token == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
 			return
 		}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header format"})
-			return
-		}
-
-		claims, err := userSvc.ValidateToken(parts[1])
+		claims, err := userSvc.ValidateToken(token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			return

@@ -10,6 +10,7 @@ import (
 
 var (
 	ErrConversationNotFound = errors.New("conversation not found")
+	ErrForbidden            = errors.New("access denied")
 )
 
 type service struct {
@@ -29,7 +30,7 @@ func NewService(cfg ServiceConfig) conversationDomain.Service {
 	}
 }
 
-func (s *service) GetOrCreateConversation(ctx context.Context, phoneNumber, contactName string) (*conversationDomain.Conversation, error) {
+func (s *service) GetOrCreateConversation(ctx context.Context, userID, phoneNumber, contactName string) (*conversationDomain.Conversation, error) {
 	conv, err := s.convRepo.GetByPhoneNumber(ctx, phoneNumber)
 	if err != nil {
 		return nil, err
@@ -40,6 +41,7 @@ func (s *service) GetOrCreateConversation(ctx context.Context, phoneNumber, cont
 	}
 
 	newConv := &conversationDomain.Conversation{
+		UserID:       userID,
 		PhoneNumber:  phoneNumber,
 		ContactName:  contactName,
 		MessageCount: 0,
@@ -54,7 +56,7 @@ func (s *service) GetOrCreateConversation(ctx context.Context, phoneNumber, cont
 	return newConv, nil
 }
 
-func (s *service) ListConversations(ctx context.Context, limit, offset int) ([]conversationDomain.Conversation, int64, error) {
+func (s *service) ListConversations(ctx context.Context, userCtx conversationDomain.UserContext, limit, offset int) ([]conversationDomain.Conversation, int64, error) {
 	if limit <= 0 {
 		limit = 20
 	}
@@ -65,12 +67,24 @@ func (s *service) ListConversations(ctx context.Context, limit, offset int) ([]c
 		offset = 0
 	}
 
-	convs, err := s.convRepo.List(ctx, limit, offset)
-	if err != nil {
-		return nil, 0, err
+	var convs []conversationDomain.Conversation
+	var total int64
+	var err error
+
+	if userCtx.IsAdmin {
+		convs, err = s.convRepo.List(ctx, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
+		total, err = s.convRepo.Count(ctx)
+	} else {
+		convs, err = s.convRepo.ListByUser(ctx, userCtx.UserID, limit, offset)
+		if err != nil {
+			return nil, 0, err
+		}
+		total, err = s.convRepo.CountByUser(ctx, userCtx.UserID)
 	}
 
-	total, err := s.convRepo.Count(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -78,7 +92,7 @@ func (s *service) ListConversations(ctx context.Context, limit, offset int) ([]c
 	return convs, total, nil
 }
 
-func (s *service) GetConversation(ctx context.Context, id string) (*conversationDomain.Conversation, error) {
+func (s *service) GetConversation(ctx context.Context, userCtx conversationDomain.UserContext, id string) (*conversationDomain.Conversation, error) {
 	conv, err := s.convRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -86,11 +100,17 @@ func (s *service) GetConversation(ctx context.Context, id string) (*conversation
 	if conv == nil {
 		return nil, ErrConversationNotFound
 	}
+
+	if !userCtx.IsAdmin && conv.UserID != userCtx.UserID {
+		return nil, ErrForbidden
+	}
+
 	return conv, nil
 }
 
 func (s *service) SaveIncomingMessage(ctx context.Context, phoneNumber, contactName, whatsappMsgID, content, msgType string) (*conversationDomain.Message, error) {
-	conv, err := s.GetOrCreateConversation(ctx, phoneNumber, contactName)
+	// For incoming WhatsApp messages, use empty userID (system-created conversations)
+	conv, err := s.GetOrCreateConversation(ctx, "", phoneNumber, contactName)
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +130,8 @@ func (s *service) SaveIncomingMessage(ctx context.Context, phoneNumber, contactN
 	}
 	msg.ID = id
 
-	s.convRepo.UpdateLastMessage(ctx, conv.ID)
-	s.convRepo.IncrementMessageCount(ctx, conv.ID)
+	_ = s.convRepo.UpdateLastMessage(ctx, conv.ID)
+	_ = s.convRepo.IncrementMessageCount(ctx, conv.ID)
 
 	return msg, nil
 }
@@ -132,13 +152,25 @@ func (s *service) SaveOutgoingMessage(ctx context.Context, conversationID, conte
 	}
 	msg.ID = id
 
-	s.convRepo.UpdateLastMessage(ctx, conversationID)
-	s.convRepo.IncrementMessageCount(ctx, conversationID)
+	_ = s.convRepo.UpdateLastMessage(ctx, conversationID)
+	_ = s.convRepo.IncrementMessageCount(ctx, conversationID)
 
 	return msg, nil
 }
 
-func (s *service) GetMessages(ctx context.Context, conversationID string, limit, offset int) ([]conversationDomain.Message, int64, error) {
+func (s *service) GetMessages(ctx context.Context, userCtx conversationDomain.UserContext, conversationID string, limit, offset int) ([]conversationDomain.Message, int64, error) {
+	conv, err := s.convRepo.GetByID(ctx, conversationID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if conv == nil {
+		return nil, 0, ErrConversationNotFound
+	}
+
+	if !userCtx.IsAdmin && conv.UserID != userCtx.UserID {
+		return nil, 0, ErrForbidden
+	}
+
 	if limit <= 0 {
 		limit = 50
 	}

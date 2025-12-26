@@ -1,0 +1,41 @@
+<div class="language-switcher">
+  <button
+    class="language-switcher-trigger"
+    (click)="toggle()"
+    [attr.aria-expanded]="isOpen()"
+    aria-haspopup="listbox"
+  >
+    <span class="language-flag">{{ languageService.currentLanguage().flag }}</span>
+    <span class="language-code">{{ languageService.currentLanguage().code.toUpperCase() }}</span>
+    <svg class="language-chevron" [class.rotate-180]="isOpen()" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </button>
+
+  @if (isOpen()) {
+    <div class="language-dropdown" role="listbox">
+      @for (lang of languageService.languages; track lang.code) {
+        <button
+          class="language-option"
+          [class.language-option--active]="lang.code === languageService.currentLanguage().code"
+          (click)="selectLanguage(lang)"
+          role="option"
+          [attr.aria-selected]="lang.code === languageService.currentLanguage().code"
+        >
+          <span class="language-flag">{{ lang.flag }}</span>
+          <span class="language-name">{{ lang.name }}</span>
+          @if (lang.code === languageService.currentLanguage().code) {
+            <svg class="language-check" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+          }
+        </button>
+      }
+    </div>
+  }
+</div>
+
+<!-- Click outside to close -->
+@if (isOpen()) {
+  <div class="language-backdrop" (click)="close()"></div>
+}

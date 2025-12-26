@@ -2,8 +2,9 @@
   class="min-h-screen flex items-center justify-center p-4"
   style="background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-primary) 50%, var(--color-bg-tertiary) 100%)"
 >
-  <!-- Theme Toggle (top-right) -->
-  <div class="fixed top-4 right-4">
+  <!-- Theme Toggle and Language Switcher (top-right) -->
+  <div class="fixed top-4 right-4 flex items-center gap-2">
+    <app-language-switcher></app-language-switcher>
     <app-theme-toggle [compact]="true"></app-theme-toggle>
   </div>
 
@@ -29,10 +30,10 @@
         </svg>
       </div>
       <h1 class="text-3xl font-bold mb-2" style="color: var(--color-text-primary)">
-        lucidRAG
+        {{ 'common.appName' | translate }}
       </h1>
       <p style="color: var(--color-text-secondary)">
-        Monitor and manage your AI conversations
+        {{ 'auth.loginSubtitle' | translate }}
       </p>
     </div>
 
@@ -46,7 +47,7 @@
             class="block text-sm font-medium mb-2"
             style="color: var(--color-text-secondary)"
           >
-            Email Address
+            {{ 'auth.email' | translate }}
           </label>
           <input
             id="email"
@@ -66,7 +67,7 @@
             class="block text-sm font-medium mb-2"
             style="color: var(--color-text-secondary)"
           >
-            Password
+            {{ 'auth.password' | translate }}
           </label>
           <input
             id="password"
@@ -111,17 +112,23 @@
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            <span>Signing in...</span>
+            <span>{{ 'common.loading' | translate }}</span>
           } @else {
-            <span>Sign In</span>
+            <span>{{ 'auth.login' | translate }}</span>
           }
         </button>
       </form>
 
+      <!-- Social Login -->
+      <div class="social-login-divider">
+        <span>{{ 'auth.orContinueWith' | translate }}</span>
+      </div>
+      <app-social-login-buttons></app-social-login-buttons>
+
       <!-- Demo Credentials -->
       <div class="mt-6 pt-6 border-t" style="border-color: var(--color-border-primary)">
         <p class="text-xs mb-3 text-center" style="color: var(--color-text-tertiary)">
-          Quick Demo Access:
+          {{ 'auth.demoCredentials' | translate }}
         </p>
         <div class="flex gap-2 flex-wrap justify-center">
           <button
@@ -130,7 +137,7 @@
             class="text-xs px-3 py-1.5 rounded-lg transition-colors"
             style="background-color: var(--color-primary-100); color: var(--color-primary-700)"
           >
-            Admin
+            {{ 'auth.adminDemo' | translate }}
           </button>
           <button
             type="button"
@@ -138,9 +145,19 @@
             class="text-xs px-3 py-1.5 rounded-lg transition-colors"
             style="background-color: var(--color-secondary-100); color: var(--color-secondary-700)"
           >
-            User
+            {{ 'auth.userDemo' | translate }}
           </button>
         </div>
+      </div>
+
+      <!-- Register Link -->
+      <div class="mt-6 pt-6 border-t text-center" style="border-color: var(--color-border-primary)">
+        <p class="text-sm" style="color: var(--color-text-secondary)">
+          {{ 'auth.noAccount' | translate }}
+          <a routerLink="/register" class="font-medium" style="color: var(--color-primary-600)">
+            {{ 'auth.register' | translate }}
+          </a>
+        </p>
       </div>
     </div>
 

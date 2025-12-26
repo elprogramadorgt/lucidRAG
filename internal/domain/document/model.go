@@ -4,6 +4,7 @@ import "time"
 
 type Document struct {
 	ID         string    `json:"id" bson:"_id,omitempty"`
+	UserID     string    `json:"user_id" bson:"user_id"`
 	Title      string    `json:"title" bson:"title"`
 	Content    string    `json:"content" bson:"content"`
 	Source     string    `json:"source" bson:"source"`

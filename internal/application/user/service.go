@@ -80,18 +80,18 @@ func (s *service) Register(ctx context.Context, newUser userDomain.User) (*userD
 	return user, nil
 }
 
-func (s *service) Login(ctx context.Context, email, password string) (string, error) {
+func (s *service) Login(ctx context.Context, email, password string) (string, *userDomain.User, error) {
 	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil || user == nil {
-		return "", ErrInvalidCredentials
+		return "", nil, ErrInvalidCredentials
 	}
 
 	if !user.IsActive {
-		return "", ErrInvalidCredentials
+		return "", nil, ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
-		return "", ErrInvalidCredentials
+		return "", nil, ErrInvalidCredentials
 	}
 
 	claims := &jwtClaims{
@@ -106,7 +106,11 @@ func (s *service) Login(ctx context.Context, email, password string) (string, er
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(s.jwtSecret)
+	tokenStr, err := token.SignedString(s.jwtSecret)
+	if err != nil {
+		return "", nil, err
+	}
+	return tokenStr, user, nil
 }
 
 func (s *service) GetUser(ctx context.Context, id string) (*userDomain.User, error) {
@@ -141,4 +145,61 @@ func (s *service) ValidateToken(tokenString string) (*userDomain.Claims, error) 
 	}
 
 	return nil, ErrInvalidToken
+}
+
+func (s *service) GetUserByEmail(ctx context.Context, email string) (*userDomain.User, error) {
+	user, err := s.repo.GetByEmail(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+	return user, nil
+}
+
+func (s *service) RegisterOAuth(ctx context.Context, newUser userDomain.User, provider, providerID string) (*userDomain.User, error) {
+	// Check if user already exists with this email
+	existing, _ := s.repo.GetByEmail(ctx, newUser.Email)
+	if existing != nil {
+		// User exists, update OAuth info if needed and return
+		return existing, nil
+	}
+
+	user := &userDomain.User{
+		Email:           newUser.Email,
+		PasswordHash:    "", // OAuth users don't have passwords
+		FirstName:       newUser.FirstName,
+		LastName:        newUser.LastName,
+		Role:            userDomain.RoleUser,
+		IsActive:        true,
+		OAuthProvider:   provider,
+		OAuthProviderID: providerID,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}
+
+	id, err := s.repo.Create(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	user.ID = id
+
+	return user, nil
+}
+
+func (s *service) GenerateToken(user *userDomain.User) (string, error) {
+	claims := &jwtClaims{
+		UserID: user.ID,
+		Email:  user.Email,
+		Role:   string(user.Role),
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(s.jwtExpiry)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Subject:   user.ID,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(s.jwtSecret)
 }

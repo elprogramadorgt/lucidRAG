@@ -1,0 +1,319 @@
+<app-keyboard-shortcuts-modal></app-keyboard-shortcuts-modal>
+<app-sidebar (collapseChange)="sidebarCollapsed.set($event)"></app-sidebar>
+
+<header class="mobile-header">
+  <button (click)="openSidebar()" class="btn btn-ghost p-2" aria-label="Open menu">
+    <svg class="w-6 h-6" style="color: var(--color-text-primary)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  </button>
+  <h1 class="font-bold" style="color: var(--color-text-primary)">System</h1>
+  <app-theme-toggle [compact]="true"></app-theme-toggle>
+</header>
+
+<main class="main-content" [class.main-content--sidebar-collapsed]="sidebarCollapsed()">
+  <div class="mb-6 flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold" style="color: var(--color-text-primary)">System Administration</h1>
+      <p class="text-sm mt-1" style="color: var(--color-text-secondary)">
+        Server status, configuration, and logs
+      </p>
+    </div>
+    <button class="btn btn-secondary" (click)="refresh()">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+      Refresh
+    </button>
+  </div>
+
+  <!-- Tab Navigation -->
+  <div class="flex gap-1 mb-6 p-1 rounded-lg" style="background-color: var(--color-surface-secondary)">
+    <button
+      class="flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+      [class]="activeTab() === 'overview' ? 'bg-primary text-white' : ''"
+      [style.color]="activeTab() !== 'overview' ? 'var(--color-text-secondary)' : ''"
+      (click)="setActiveTab('overview')">
+      <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+      </svg>
+      Overview
+    </button>
+    <button
+      class="flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+      [class]="activeTab() === 'logs' ? 'bg-primary text-white' : ''"
+      [style.color]="activeTab() !== 'logs' ? 'var(--color-text-secondary)' : ''"
+      (click)="setActiveTab('logs')">
+      <svg class="w-4 h-4 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+      Logs
+    </button>
+  </div>
+
+  <!-- Overview Tab -->
+  @if (activeTab() === 'overview') {
+    @if (serverInfoLoading()) {
+      <div class="flex items-center justify-center py-16">
+        <div class="animate-spin w-8 h-8 border-2 border-primary rounded-full" style="border-top-color: transparent;"></div>
+      </div>
+    } @else if (serverInfo()) {
+      <!-- Server Status Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Server Status -->
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full flex items-center justify-center"
+                 [style.background-color]="serverInfo()!.status === 'running' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'">
+              <div class="w-3 h-3 rounded-full"
+                   [style.background-color]="serverInfo()!.status === 'running' ? '#22c55e' : '#ef4444'"></div>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Server Status</div>
+              <div class="text-lg font-semibold capitalize" style="color: var(--color-text-primary)">{{ serverInfo()!.status }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Database Status -->
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full flex items-center justify-center"
+                 [style.background-color]="serverInfo()!.database.status === 'connected' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'">
+              <svg class="w-6 h-6" [style.color]="serverInfo()!.database.status === 'connected' ? '#22c55e' : '#ef4444'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Database</div>
+              <div class="text-lg font-semibold capitalize" style="color: var(--color-text-primary)">{{ serverInfo()!.database.status }}</div>
+              @if (serverInfo()!.database.latency) {
+                <div class="text-xs" style="color: var(--color-text-tertiary)">{{ serverInfo()!.database.latency_ms }}ms latency</div>
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Uptime -->
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(59, 130, 246, 0.1)">
+              <svg class="w-6 h-6" style="color: #3b82f6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Uptime</div>
+              <div class="text-lg font-semibold" style="color: var(--color-text-primary)">{{ serverInfo()!.uptime }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Environment -->
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full flex items-center justify-center" style="background-color: rgba(168, 85, 247, 0.1)">
+              <svg class="w-6 h-6" style="color: #a855f7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Environment</div>
+              <div class="text-lg font-semibold capitalize" style="color: var(--color-text-primary)">{{ serverInfo()!.environment }}</div>
+              <div class="text-xs" style="color: var(--color-text-tertiary)">v{{ serverInfo()!.version }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Runtime Info -->
+      <div class="card mb-6">
+        <div class="p-4" style="border-bottom: 1px solid var(--color-border-primary)">
+          <h3 class="font-semibold" style="color: var(--color-text-primary)">Runtime Information</h3>
+        </div>
+        <div class="p-4">
+          <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Go Version</div>
+              <div class="font-medium" style="color: var(--color-text-primary)">{{ serverInfo()!.runtime.go_version }}</div>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">CPU Cores</div>
+              <div class="font-medium" style="color: var(--color-text-primary)">{{ serverInfo()!.runtime.num_cpu }}</div>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Goroutines</div>
+              <div class="font-medium" style="color: var(--color-text-primary)">{{ serverInfo()!.runtime.num_goroutine }}</div>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Memory Allocated</div>
+              <div class="font-medium" style="color: var(--color-text-primary)">{{ serverInfo()!.runtime.mem_alloc_mb }} MB</div>
+            </div>
+            <div>
+              <div class="text-sm" style="color: var(--color-text-secondary)">Memory System</div>
+              <div class="font-medium" style="color: var(--color-text-primary)">{{ serverInfo()!.runtime.mem_sys_mb }} MB</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- API Endpoints -->
+      <div class="card">
+        <div class="p-4" style="border-bottom: 1px solid var(--color-border-primary)">
+          <h3 class="font-semibold" style="color: var(--color-text-primary)">API Endpoints</h3>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr style="border-bottom: 1px solid var(--color-border-primary)">
+                <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Path</th>
+                <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Method</th>
+                <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (endpoint of serverInfo()!.endpoints; track endpoint.path) {
+                <tr style="border-bottom: 1px solid var(--color-border-primary)">
+                  <td class="p-4 text-sm font-mono" style="color: var(--color-text-primary)">{{ endpoint.path }}</td>
+                  <td class="p-4">
+                    <span class="badge badge-ghost text-xs">{{ endpoint.method }}</span>
+                  </td>
+                  <td class="p-4 text-sm" style="color: var(--color-text-secondary)">{{ endpoint.description }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    } @else {
+      <div class="card p-8 text-center">
+        <svg class="w-12 h-12 mx-auto mb-4" style="color: var(--color-text-tertiary)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p style="color: var(--color-text-secondary)">Unable to load server information</p>
+        <button class="btn btn-primary mt-4" (click)="loadServerInfo()">Retry</button>
+      </div>
+    }
+  }
+
+  <!-- Logs Tab -->
+  @if (activeTab() === 'logs') {
+    <!-- Stats Cards -->
+    @if (stats()) {
+    <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-6">
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold" style="color: var(--color-text-primary)">{{ stats()!.total_count }}</div>
+        <div class="text-sm" style="color: var(--color-text-secondary)">Total Logs</div>
+      </div>
+      @for (level of levels; track level) {
+      <div class="card p-4 text-center">
+        <div class="text-2xl font-bold" [class]="getLevelClass(level)" style="background: none; padding: 0;">
+          {{ stats()!.level_counts[level] || 0 }}
+        </div>
+        <div class="text-sm" style="color: var(--color-text-secondary)">{{ level }}</div>
+      </div>
+      }
+    </div>
+    }
+
+    <!-- Filters -->
+    <div class="card mb-6">
+      <div class="p-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary)">Level</label>
+            <select class="input w-full" [ngModel]="levelFilter()" (ngModelChange)="levelFilter.set($event)">
+              <option value="">All Levels</option>
+              @for (level of levels; track level) {
+              <option [value]="level">{{ level }}</option>
+              }
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary)">Search</label>
+            <input type="text" class="input w-full" placeholder="Search messages..." [ngModel]="searchFilter()" (ngModelChange)="searchFilter.set($event)" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary)">Start Date</label>
+            <input type="datetime-local" class="input w-full" [ngModel]="startDate()" (ngModelChange)="startDate.set($event)" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium mb-1" style="color: var(--color-text-secondary)">End Date</label>
+            <input type="datetime-local" class="input w-full" [ngModel]="endDate()" (ngModelChange)="endDate.set($event)" />
+          </div>
+          <div class="flex items-end gap-2">
+            <button class="btn btn-primary flex-1" (click)="applyFilters()">Apply</button>
+            <button class="btn btn-ghost" (click)="clearFilters()">Clear</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Logs Table -->
+    <div class="card">
+      @if (loading()) {
+      <div class="flex items-center justify-center py-16">
+        <div class="animate-spin w-8 h-8 border-2 border-primary rounded-full" style="border-top-color: transparent;"></div>
+      </div>
+      } @else if (logs().length === 0) {
+      <div class="flex flex-col items-center justify-center py-16 text-center">
+        <div class="w-20 h-20 rounded-full flex items-center justify-center mb-4" style="background-color: var(--color-surface-secondary)">
+          <svg class="w-10 h-10" style="color: var(--color-text-tertiary)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        </div>
+        <h3 class="text-xl font-semibold mb-2" style="color: var(--color-text-primary)">No Logs Found</h3>
+        <p style="color: var(--color-text-secondary)">No logs match your current filters</p>
+      </div>
+      } @else {
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--color-border-primary)">
+              <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Time</th>
+              <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Level</th>
+              <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Source</th>
+              <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Message</th>
+              <th class="text-left p-4 text-sm font-medium" style="color: var(--color-text-secondary)">Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (log of logs(); track log.id) {
+            <tr class="log-row" style="border-bottom: 1px solid var(--color-border-primary)">
+              <td class="p-4 text-sm whitespace-nowrap" style="color: var(--color-text-secondary)">{{ formatTime(log.timestamp) }}</td>
+              <td class="p-4"><span class="badge" [class]="getLevelClass(log.level)">{{ log.level }}</span></td>
+              <td class="p-4 text-sm" style="color: var(--color-text-secondary)">{{ log.source || '-' }}</td>
+              <td class="p-4 text-sm" style="color: var(--color-text-primary)">{{ log.message }}</td>
+              <td class="p-4 text-sm">
+                @if (log.request_id) {
+                <span class="badge badge-ghost text-xs mr-1">{{ log.request_id.slice(0, 8) }}</span>
+                }
+                @if (log.attrs && (log.attrs | keyvalue).length > 0) {
+                <details class="inline">
+                  <summary class="cursor-pointer text-xs" style="color: var(--color-text-secondary)">attrs</summary>
+                  <pre class="text-xs mt-1 p-2 rounded" style="background-color: var(--color-surface-secondary); color: var(--color-text-secondary)">{{ formatAttrs(log.attrs) }}</pre>
+                </details>
+                }
+              </td>
+            </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between p-4" style="border-top: 1px solid var(--color-border-primary)">
+        <div class="text-sm" style="color: var(--color-text-secondary)">
+          Showing {{ offset() + 1 }} - {{ showingEnd }} of {{ total() }}
+        </div>
+        <div class="flex gap-2">
+          <button class="btn btn-ghost btn-sm" [disabled]="offset() === 0" (click)="prevPage()">Previous</button>
+          <span class="px-3 py-1 text-sm" style="color: var(--color-text-secondary)">Page {{ currentPage }} of {{ totalPages }}</span>
+          <button class="btn btn-ghost btn-sm" [disabled]="offset() + limit() >= total()" (click)="nextPage()">Next</button>
+        </div>
+      </div>
+      }
+    </div>
+  }
+</main>

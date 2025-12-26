@@ -72,7 +72,7 @@ func (r *ConversationRepo) List(ctx context.Context, limit, offset int) ([]conve
 	if err != nil {
 		return nil, err
 	}
-	defer cursor.Close(ctx)
+	defer func() { _ = cursor.Close(ctx) }()
 
 	var convs []conversation.Conversation
 	if err := cursor.All(ctx, &convs); err != nil {
@@ -114,4 +114,32 @@ func (r *ConversationRepo) IncrementMessageCount(ctx context.Context, id string)
 
 func (r *ConversationRepo) Count(ctx context.Context) (int64, error) {
 	return r.collection.CountDocuments(ctx, bson.M{})
+}
+
+func (r *ConversationRepo) ListByUser(ctx context.Context, userID string, limit, offset int) ([]conversation.Conversation, error) {
+	opts := options.Find().
+		SetLimit(int64(limit)).
+		SetSkip(int64(offset)).
+		SetSort(bson.D{{Key: "last_message_at", Value: -1}})
+
+	cursor, err := r.collection.Find(ctx, bson.M{"user_id": userID}, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = cursor.Close(ctx) }()
+
+	var convs []conversation.Conversation
+	if err := cursor.All(ctx, &convs); err != nil {
+		return nil, err
+	}
+
+	if convs == nil {
+		convs = []conversation.Conversation{}
+	}
+
+	return convs, nil
+}
+
+func (r *ConversationRepo) CountByUser(ctx context.Context, userID string) (int64, error) {
+	return r.collection.CountDocuments(ctx, bson.M{"user_id": userID})
 }

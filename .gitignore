@@ -35,6 +35,9 @@ Thumbs.db
 /tmp/
 *.tmp
 
+# PID files (from start/stop scripts)
+.pids/
+
 # Database
 *.db
 *.sqlite

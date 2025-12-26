@@ -7,6 +7,27 @@ func Register(rg *gin.RouterGroup, handler *Handler, authMiddleware gin.HandlerF
 	{
 		auth.POST("/register", handler.Register)
 		auth.POST("/login", handler.Login)
+		auth.POST("/logout", handler.Logout)
 		auth.GET("/me", authMiddleware, handler.Me)
+	}
+}
+
+func RegisterOAuth(rg *gin.RouterGroup, handler *OAuthHandler) {
+	oauth := rg.Group("/auth/oauth")
+	{
+		// Get enabled providers
+		oauth.GET("/providers", handler.GetProviders)
+
+		// Google OAuth
+		oauth.GET("/google", handler.GoogleLogin)
+		oauth.GET("/google/callback", handler.GoogleCallback)
+
+		// Facebook OAuth
+		oauth.GET("/facebook", handler.FacebookLogin)
+		oauth.GET("/facebook/callback", handler.FacebookCallback)
+
+		// Apple OAuth
+		oauth.GET("/apple", handler.AppleLogin)
+		oauth.POST("/apple/callback", handler.AppleCallback) // Apple uses form_post
 	}
 }

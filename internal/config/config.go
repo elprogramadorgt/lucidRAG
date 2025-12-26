@@ -19,6 +19,33 @@ type Config struct {
 type AuthConfig struct {
 	JWTSecret      string
 	JWTExpiryHours int
+	CookieDomain   string
+	CookieSecure   bool
+	OAuth          OAuthConfig
+}
+
+// OAuthConfig holds OAuth provider configurations
+type OAuthConfig struct {
+	RedirectBaseURL    string
+	Google             OAuthProviderConfig
+	Facebook           OAuthProviderConfig
+	Apple              AppleOAuthConfig
+}
+
+// OAuthProviderConfig holds standard OAuth provider settings
+type OAuthProviderConfig struct {
+	ClientID     string
+	ClientSecret string
+	Enabled      bool
+}
+
+// AppleOAuthConfig holds Apple Sign In specific settings
+type AppleOAuthConfig struct {
+	ClientID   string
+	TeamID     string
+	KeyID      string
+	PrivateKey string
+	Enabled    bool
 }
 
 // ServerConfig holds server-related configuration
@@ -83,6 +110,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid JWT_EXPIRY_HOURS: %w", err)
 	}
 
+	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
+
 	config := &Config{
 		Server: ServerConfig{
 			Port:        port,
@@ -114,6 +143,28 @@ func Load() (*Config, error) {
 		Auth: AuthConfig{
 			JWTSecret:      getEnv("JWT_SECRET", ""),
 			JWTExpiryHours: jwtExpiry,
+			CookieDomain:   getEnv("COOKIE_DOMAIN", ""),
+			CookieSecure:   cookieSecure,
+			OAuth: OAuthConfig{
+				RedirectBaseURL: getEnv("OAUTH_REDIRECT_BASE_URL", "http://localhost:4200"),
+				Google: OAuthProviderConfig{
+					ClientID:     getEnv("GOOGLE_CLIENT_ID", ""),
+					ClientSecret: getEnv("GOOGLE_CLIENT_SECRET", ""),
+					Enabled:      getEnv("GOOGLE_OAUTH_ENABLED", "false") == "true",
+				},
+				Facebook: OAuthProviderConfig{
+					ClientID:     getEnv("FACEBOOK_CLIENT_ID", ""),
+					ClientSecret: getEnv("FACEBOOK_CLIENT_SECRET", ""),
+					Enabled:      getEnv("FACEBOOK_OAUTH_ENABLED", "false") == "true",
+				},
+				Apple: AppleOAuthConfig{
+					ClientID:   getEnv("APPLE_CLIENT_ID", ""),
+					TeamID:     getEnv("APPLE_TEAM_ID", ""),
+					KeyID:      getEnv("APPLE_KEY_ID", ""),
+					PrivateKey: getEnv("APPLE_PRIVATE_KEY", ""),
+					Enabled:    getEnv("APPLE_OAUTH_ENABLED", "false") == "true",
+				},
+			},
 		},
 	}
 

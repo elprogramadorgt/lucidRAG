@@ -11,6 +11,7 @@ const (
 
 type Conversation struct {
 	ID            string    `json:"id" bson:"_id,omitempty"`
+	UserID        string    `json:"user_id" bson:"user_id"`
 	PhoneNumber   string    `json:"phone_number" bson:"phone_number"`
 	ContactName   string    `json:"contact_name" bson:"contact_name"`
 	LastMessageAt time.Time `json:"last_message_at" bson:"last_message_at"`

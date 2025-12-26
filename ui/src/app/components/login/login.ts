@@ -1,14 +1,17 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { AuthService } from '../../services/auth.service';
 import { ThemeToggleComponent } from '../shared/theme-toggle/theme-toggle';
+import { LanguageSwitcherComponent } from '../shared/language-switcher/language-switcher';
+import { SocialLoginButtonsComponent } from '../shared/social-login-buttons/social-login-buttons';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, ThemeToggleComponent],
+  imports: [CommonModule, FormsModule, RouterLink, TranslateModule, ThemeToggleComponent, LanguageSwitcherComponent, SocialLoginButtonsComponent],
   templateUrl: './login.html',
   styleUrls: ['./login.scss'],
 })

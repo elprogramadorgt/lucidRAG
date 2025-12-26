@@ -17,6 +17,8 @@ type User struct {
 	LastName     string    `json:"last_name" bson:"last_name"`
 	Role         Role      `json:"role" bson:"role"`
 	IsActive     bool      `json:"is_active" bson:"is_active"`
+	OAuthProvider   string `json:"oauth_provider,omitempty" bson:"oauth_provider,omitempty"`
+	OAuthProviderID string `json:"-" bson:"oauth_provider_id,omitempty"`
 	CreatedAt    time.Time `json:"created_at" bson:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at" bson:"updated_at"`
 }
