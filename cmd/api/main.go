@@ -52,7 +52,7 @@ func main() {
 
 	ctx := context.Background()
 
-	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s",
+	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,

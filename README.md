@@ -76,6 +76,26 @@ The services will be available at:
 - Admin UI: http://localhost:4200
 - MongoDB: localhost:27017
 
+4. Create an admin user:
+
+The first user you create will have the "user" role by default. To create an admin user, first register via the API:
+
+```bash
+curl -s -X POST http://localhost:8080/api/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@lucidrag.dev","password":"admin123","name":"Admin User"}'
+```
+
+Then promote the user to admin in MongoDB:
+
+```bash
+docker exec lucidrag-mongodb-1 mongosh -u lucidrag -p lucidrag \
+  --authenticationDatabase admin lucidrag \
+  --eval 'db.users.updateOne({email:"admin@lucidrag.dev"},{$set:{role:"admin"}})'
+```
+
+Now you can log in at http://localhost:4200 with your admin credentials to access document management and conversation history.
+
 ### Local Development
 
 #### Backend (Go)
