@@ -24,8 +24,18 @@ func NewHandler(svc conversationDomain.Service, log *logger.Logger) *Handler {
 }
 
 func (h *Handler) ListConversations(ctx *gin.Context) {
-	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
-	offset, _ := strconv.Atoi(ctx.DefaultQuery("offset", "0"))
+	limit, err := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
+	if err != nil || limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	offset, err := strconv.Atoi(ctx.DefaultQuery("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
 
 	convs, total, err := h.svc.ListConversations(ctx.Request.Context(), limit, offset)
 	if err != nil {
@@ -70,8 +80,18 @@ func (h *Handler) GetMessages(ctx *gin.Context) {
 		return
 	}
 
-	limit, _ := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
-	offset, _ := strconv.Atoi(ctx.DefaultQuery("offset", "0"))
+	limit, err := strconv.Atoi(ctx.DefaultQuery("limit", "50"))
+	if err != nil || limit < 1 {
+		limit = 50
+	}
+	if limit > 200 {
+		limit = 200
+	}
+
+	offset, err := strconv.Atoi(ctx.DefaultQuery("offset", "0"))
+	if err != nil || offset < 0 {
+		offset = 0
+	}
 
 	msgs, total, err := h.svc.GetMessages(ctx.Request.Context(), id, limit, offset)
 	if err != nil {

@@ -213,6 +213,8 @@ func main() {
 		log.Error("Failed to close database connection", "error", err)
 	}
 
+	rateLimiter.Stop()
+
 	log.Info("Server stopped")
 }
 
@@ -247,9 +249,21 @@ func loggingMiddleware(log *logger.Logger) gin.HandlerFunc {
 }
 
 func corsMiddleware() gin.HandlerFunc {
+	// Allowed origins - in production, configure via environment variable
+	allowedOrigins := map[string]bool{
+		"http://localhost:4200": true,
+		"http://localhost:8080": true,
+	}
+
 	return func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		origin := c.Request.Header.Get("Origin")
+
+		// Only set CORS headers for allowed origins
+		if allowedOrigins[origin] {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
+
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, X-Request-ID")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
 

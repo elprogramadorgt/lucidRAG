@@ -135,6 +135,12 @@ func (c *Config) Validate() error {
 		missing = append(missing, "WHATSAPP_WEBHOOK_VERIFY_TOKEN")
 	}
 
+	if c.Auth.JWTSecret == "" {
+		missing = append(missing, "JWT_SECRET")
+	} else if len(c.Auth.JWTSecret) < 32 {
+		return fmt.Errorf("JWT_SECRET must be at least 32 characters long")
+	}
+
 	if len(missing) > 0 {
 		return fmt.Errorf("missing required environment variables: %v", missing)
 	}

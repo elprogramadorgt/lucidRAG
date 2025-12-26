@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ type service struct {
 	chunker        *chunker.Chunker
 	embeddingModel string
 	modelName      string
+	logger         *slog.Logger
 }
 
 type ServiceConfig struct {
@@ -34,6 +36,7 @@ type ServiceConfig struct {
 	Chunker        *chunker.Chunker
 	EmbeddingModel string
 	ModelName      string
+	Logger         *slog.Logger
 }
 
 func NewService(cfg ServiceConfig) documentDomain.Service {
@@ -47,6 +50,11 @@ func NewService(cfg ServiceConfig) documentDomain.Service {
 		modelName = "gpt-3.5-turbo"
 	}
 
+	logger := cfg.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+
 	return &service{
 		repo:           cfg.Repo,
 		chunkRepo:      cfg.ChunkRepo,
@@ -54,6 +62,7 @@ func NewService(cfg ServiceConfig) documentDomain.Service {
 		chunker:        cfg.Chunker,
 		embeddingModel: embeddingModel,
 		modelName:      modelName,
+		logger:         logger.With("service", "document"),
 	}
 }
 
@@ -65,7 +74,7 @@ func (s *service) CreateDocument(ctx context.Context, doc *documentDomain.Docume
 
 	if s.openaiClient != nil && s.chunker != nil && s.chunkRepo != nil && doc.Content != "" {
 		if err := s.createChunksForDocument(ctx, id, doc.Content); err != nil {
-			fmt.Printf("warning: failed to create chunks for document %s: %v\n", id, err)
+			s.logger.Warn("failed to create chunks for document", "document_id", id, "error", err)
 		}
 	}
 
@@ -82,7 +91,7 @@ func (s *service) createChunksForDocument(ctx context.Context, documentID, conte
 	for i, text := range textChunks {
 		embedding, err := s.openaiClient.CreateEmbedding(ctx, text, s.embeddingModel)
 		if err != nil {
-			fmt.Printf("warning: failed to create embedding for chunk %d: %v\n", i, err)
+			s.logger.Warn("failed to create embedding for chunk", "chunk_index", i, "error", err)
 			continue
 		}
 
@@ -155,12 +164,12 @@ func (s *service) UpdateDocument(ctx context.Context, doc *documentDomain.Docume
 
 	if s.chunkRepo != nil && doc.Content != existing.Content {
 		if err := s.chunkRepo.DeleteByDocumentID(ctx, doc.ID); err != nil {
-			fmt.Printf("warning: failed to delete old chunks for document %s: %v\n", doc.ID, err)
+			s.logger.Warn("failed to delete old chunks for document", "document_id", doc.ID, "error", err)
 		}
 
 		if s.openaiClient != nil && s.chunker != nil && doc.Content != "" {
 			if err := s.createChunksForDocument(ctx, doc.ID, doc.Content); err != nil {
-				fmt.Printf("warning: failed to create new chunks for document %s: %v\n", doc.ID, err)
+				s.logger.Warn("failed to create new chunks for document", "document_id", doc.ID, "error", err)
 			}
 		}
 	}
@@ -179,7 +188,7 @@ func (s *service) DeleteDocument(ctx context.Context, id string) error {
 
 	if s.chunkRepo != nil {
 		if err := s.chunkRepo.DeleteByDocumentID(ctx, id); err != nil {
-			fmt.Printf("warning: failed to delete chunks for document %s: %v\n", id, err)
+			s.logger.Warn("failed to delete chunks for document", "document_id", id, "error", err)
 		}
 	}
 

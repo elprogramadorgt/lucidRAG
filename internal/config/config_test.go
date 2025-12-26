@@ -9,11 +9,13 @@ import (
 func setRequiredEnvVars() {
 	os.Setenv("DB_PASSWORD", "testpassword")
 	os.Setenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "testtoken")
+	os.Setenv("JWT_SECRET", "test-jwt-secret-must-be-32-chars!")
 }
 
 func clearRequiredEnvVars() {
 	os.Unsetenv("DB_PASSWORD")
 	os.Unsetenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN")
+	os.Unsetenv("JWT_SECRET")
 }
 
 func TestLoad(t *testing.T) {
@@ -83,5 +85,27 @@ func TestLoadMissingRequiredEnvVars(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "WHATSAPP_WEBHOOK_VERIFY_TOKEN") {
 		t.Errorf("Expected error to mention WHATSAPP_WEBHOOK_VERIFY_TOKEN, got: %v", err)
+	}
+
+	if !strings.Contains(err.Error(), "JWT_SECRET") {
+		t.Errorf("Expected error to mention JWT_SECRET, got: %v", err)
+	}
+}
+
+func TestLoadJWTSecretTooShort(t *testing.T) {
+	setRequiredEnvVars()
+	os.Setenv("JWT_SECRET", "short") // Less than 32 chars
+
+	defer func() {
+		clearRequiredEnvVars()
+	}()
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("Expected error for short JWT_SECRET")
+	}
+
+	if !strings.Contains(err.Error(), "JWT_SECRET must be at least 32 characters") {
+		t.Errorf("Expected error about JWT_SECRET length, got: %v", err)
 	}
 }

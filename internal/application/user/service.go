@@ -50,7 +50,10 @@ func NewService(cfg ServiceConfig) userDomain.Service {
 }
 
 func (s *service) Register(ctx context.Context, email, password, name string) (*userDomain.User, error) {
-	existing, _ := s.repo.GetByEmail(ctx, email)
+	existing, err := s.repo.GetByEmail(ctx, email)
+	if err != nil && !errors.Is(err, ErrUserNotFound) {
+		return nil, err
+	}
 	if existing != nil {
 		return nil, ErrEmailExists
 	}
