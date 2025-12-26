@@ -26,9 +26,11 @@ import (
 	"github.com/elprogramadorgt/lucidRAG/pkg/openai"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	_ = godotenv.Load()
 	cfg, err := config.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load configuration: %v\n", err)
@@ -52,7 +54,13 @@ func main() {
 
 	ctx := context.Background()
 
-	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s",
+	fmt.Println("Connecting to MongoDB...")
+	fmt.Println("DB Host:", cfg.Database.Host)
+	fmt.Println("DB Port:", cfg.Database.Port)
+	fmt.Println("DB Name:", cfg.Database.Name)
+	fmt.Println("DB User:", cfg.Database.User)
+	// Do not log the password for security reasons
+	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin",
 		cfg.Database.User,
 		cfg.Database.Password,
 		cfg.Database.Host,

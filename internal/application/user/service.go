@@ -49,22 +49,22 @@ func NewService(cfg ServiceConfig) userDomain.Service {
 	}
 }
 
-func (s *service) Register(ctx context.Context, email, password, name string) (*userDomain.User, error) {
-	existing, _ := s.repo.GetByEmail(ctx, email)
+func (s *service) Register(ctx context.Context, newUser userDomain.User) (*userDomain.User, error) {
+	existing, _ := s.repo.GetByEmail(ctx, newUser.Email)
 	if existing != nil {
 		return nil, ErrEmailExists
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte(newUser.PasswordHash), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, err
 	}
 
 	user := &userDomain.User{
-		Email:        email,
+		Email:        newUser.Email,
 		PasswordHash: string(hash),
-		Name:         name,
-		Role:         userDomain.RoleUser,
+		FirstName:    newUser.FirstName,
+		LastName:     newUser.LastName,
 		IsActive:     true,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),

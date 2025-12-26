@@ -10,27 +10,25 @@ services:
   #   depends_on:
   #     - postgres
   #   restart: unless-stopped
-  database:
-    image: mongo:latest
-    restart: always
-    ports:
-      - "8080:8080"
-    env_file:
-      - .env
-    depends_on:
-      - mongodb
-    restart: unless-stopped
+  # database:
+  #   image: mongo:latest
+  #   restart: always
+  #   ports:
+  #     - "8080:8080"
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     - mongodb
 
   mongodb:
-    image: mongo:7-jammy
+    image: mongo:8.2.3-noble
     environment:
       MONGO_INITDB_ROOT_USERNAME: lucidrag
       MONGO_INITDB_ROOT_PASSWORD: lucidrag
       MONGO_INITDB_DATABASE: lucidrag
     ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
+      - "27019:27017"
+
     restart: unless-stopped
 
   # postgres:
@@ -54,6 +52,3 @@ services:
   #   depends_on:
   #     - api
   #   restart: unless-stopped
-
-volumes:
-  mongodb_data:

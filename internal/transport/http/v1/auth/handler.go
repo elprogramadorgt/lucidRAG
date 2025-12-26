@@ -8,6 +8,7 @@ import (
 	userDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/user"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
 )
 
 type Handler struct {
@@ -23,9 +24,10 @@ func NewHandler(svc userDomain.Service, log *logger.Logger) *Handler {
 }
 
 type registerRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=8"`
-	Name     string `json:"name" binding:"required"`
+	Email     string `json:"email" binding:"required,email"`
+	Password  string `json:"password" binding:"required,min=8"`
+	FirstName string `json:"first_name" binding:"required"`
+	LastName  string `json:"last_name" binding:"required"`
 }
 
 type loginRequest struct {
@@ -34,7 +36,7 @@ type loginRequest struct {
 }
 
 type authResponse struct {
-	Token string          `json:"token,omitempty"`
+	Token string           `json:"token,omitempty"`
 	User  *userDomain.User `json:"user"`
 }
 
@@ -45,7 +47,12 @@ func (h *Handler) Register(ctx *gin.Context) {
 		return
 	}
 
-	user, err := h.svc.Register(ctx.Request.Context(), req.Email, req.Password, req.Name)
+	user, err := h.svc.Register(ctx.Request.Context(), userDomain.User{
+		Email:        req.Email,
+		PasswordHash: req.Password,
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+	})
 	if err != nil {
 		if errors.Is(err, userApp.ErrEmailExists) {
 			ctx.JSON(http.StatusConflict, gin.H{"error": "email already registered"})
@@ -70,6 +77,7 @@ func (h *Handler) Register(ctx *gin.Context) {
 func (h *Handler) Login(ctx *gin.Context) {
 	var req loginRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
+		logrus.Error("invalid login request body: ", err)
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
 		return
 	}

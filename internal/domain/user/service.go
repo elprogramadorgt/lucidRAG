@@ -9,7 +9,7 @@ type Claims struct {
 }
 
 type Service interface {
-	Register(ctx context.Context, email, password, name string) (*User, error)
+	Register(ctx context.Context, newUser User) (*User, error)
 	Login(ctx context.Context, email, password string) (string, error)
 	GetUser(ctx context.Context, id string) (*User, error)
 	ValidateToken(token string) (*Claims, error)

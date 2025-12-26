@@ -18,7 +18,7 @@ func (h *Handler) HandleRegister(ctx *gin.Context) {
 		return
 	}
 
-	err := h.svc.Register(ctx, &userApp.User{
+	_, err := h.svc.Register(ctx, userApp.User{
 		Email:        req.Email,
 		PasswordHash: req.Password,
 		FirstName:    req.FirstName,
