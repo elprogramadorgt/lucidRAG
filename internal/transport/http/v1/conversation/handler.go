@@ -11,11 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Handler handles conversation-related HTTP requests.
 type Handler struct {
 	svc conversationDomain.Service
 	log *logger.Logger
 }
 
+// NewHandler creates a new conversation handler.
 func NewHandler(svc conversationDomain.Service, log *logger.Logger) *Handler {
 	return &Handler{
 		svc: svc,

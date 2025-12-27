@@ -11,6 +11,7 @@ import (
 
 	convApp "github.com/elprogramadorgt/lucidRAG/internal/application/conversation"
 	docApp "github.com/elprogramadorgt/lucidRAG/internal/application/document"
+	ragApp "github.com/elprogramadorgt/lucidRAG/internal/application/rag"
 	userApp "github.com/elprogramadorgt/lucidRAG/internal/application/user"
 	"github.com/elprogramadorgt/lucidRAG/internal/application/whatsapp"
 	"github.com/elprogramadorgt/lucidRAG/internal/config"
@@ -19,6 +20,7 @@ import (
 	authHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/auth"
 	conversationHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/conversation"
 	documentHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/document"
+	healthHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/health"
 	ragHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/rag"
 	systemHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/system"
 	whatsappHandler "github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/whatsapp"
@@ -45,18 +47,19 @@ func main() {
 	}
 
 	ctx := context.Background()
-	mongoURI := fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin",
-		cfg.Database.User, cfg.Database.Password, cfg.Database.Host, cfg.Database.Port, cfg.Database.Name)
-
-	db, err := mongo.NewClient(ctx, mongoURI, cfg.Database.Name)
+	db, err := mongo.NewClient(ctx, cfg.Database.MongoURI(), cfg.Database.Name)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "mongo: %v\n", err)
 		os.Exit(1)
 	}
 
 	logRepo := mongo.NewLogRepo(db)
+	if err := logRepo.EnsureIndexes(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "log indexes: %v\n", err)
+		os.Exit(1)
+	}
 	log := logger.New(logger.Options{
-		Level: logLevel(cfg.Server.Environment),
+		Level: cfg.Server.LogLevel(),
 		JSON:  cfg.Server.Environment == "production",
 		Store: logRepo,
 	})
@@ -66,11 +69,21 @@ func main() {
 		openaiClient = openai.NewClient(cfg.RAG.OpenAIAPIKey)
 	}
 
+	chunkRepo := mongo.NewChunkRepo(db)
+	ragSvc := ragApp.NewService(ragApp.ServiceConfig{
+		ChunkRepo:      chunkRepo,
+		OpenAIClient:   openaiClient,
+		Chunker:        chunker.New(cfg.RAG.ChunkSize, cfg.RAG.ChunkOverlap),
+		EmbeddingModel: cfg.RAG.EmbeddingModel,
+		ModelName:      cfg.RAG.ModelName,
+		Log:            log,
+	})
+
 	whatsappSvc := whatsapp.NewService(mongo.NewWhatsappRepo(db))
 	documentSvc := docApp.NewService(docApp.ServiceConfig{
-		Repo: mongo.NewDocumentRepo(db), ChunkRepo: mongo.NewChunkRepo(db),
-		OpenAIClient: openaiClient, Chunker: chunker.New(cfg.RAG.ChunkSize, cfg.RAG.ChunkOverlap),
-		EmbeddingModel: cfg.RAG.EmbeddingModel, ModelName: cfg.RAG.ModelName,
+		Repo:   mongo.NewDocumentRepo(db),
+		RAGSvc: ragSvc,
+		Log:    log,
 	})
 	userSvc := userApp.NewService(userApp.ServiceConfig{
 		Repo: mongo.NewUserRepo(db), JWTSecret: cfg.Auth.JWTSecret,
@@ -81,7 +94,7 @@ func main() {
 	})
 
 	whatsappHdlr := whatsappHandler.NewHandler(whatsappHandler.HandlerConfig{
-		WhatsAppSvc: whatsappSvc, ConversationSvc: conversationSvc, DocumentSvc: documentSvc,
+		WhatsAppSvc: whatsappSvc, ConversationSvc: conversationSvc, RAGSvc: ragSvc,
 		WebhookVerifyToken: cfg.WhatsApp.WebhookVerifyToken, Log: log,
 	})
 
@@ -93,14 +106,7 @@ func main() {
 	r.Use(middleware.CORS([]string{"http://localhost:4200", "http://localhost:8080"}))
 	r.Use(middleware.RateLimit(rateLimiter))
 
-	r.GET("/healthz", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
-	r.GET("/readyz", func(c *gin.Context) {
-		if err := db.Ping(c.Request.Context()); err != nil {
-			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "error"})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
-	})
+	healthHandler.Register(r, healthHandler.NewHandler(db))
 
 	v1 := r.Group("/api/v1")
 	cookieCfg := authHandler.CookieConfig{
@@ -111,7 +117,7 @@ func main() {
 	authHandler.Register(v1, authHandler.NewHandler(userSvc, log, cookieCfg), authMw)
 	authHandler.RegisterOAuth(v1, authHandler.NewOAuthHandler(userSvc, log, cfg.Auth.OAuth, cookieCfg))
 	whatsappHandler.Register(v1, whatsappHdlr)
-	ragHandler.Register(v1.Group("/rag", authMw), ragHandler.NewHandler(documentSvc, log))
+	ragHandler.Register(v1.Group("/rag", authMw), ragHandler.NewHandler(ragSvc, log))
 	documentHandler.Register(v1.Group("/documents", authMw), documentHandler.NewHandler(documentSvc, log))
 	conversationHandler.Register(v1.Group("/conversations", authMw), conversationHandler.NewHandler(conversationSvc, log))
 	systemHandler.Register(v1.Group("/system", authMw, adminMw), systemHandler.NewHandler(systemHandler.HandlerConfig{
@@ -142,12 +148,6 @@ func main() {
 	defer cancel()
 	_ = srv.Shutdown(shutdownCtx)
 	rateLimiter.Stop()
+	log.Stop()
 	_ = db.Close(shutdownCtx)
-}
-
-func logLevel(env string) string {
-	if env == "development" {
-		return "debug"
-	}
-	return "info"
 }

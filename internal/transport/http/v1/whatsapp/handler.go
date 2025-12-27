@@ -4,34 +4,37 @@ import (
 	"net/http"
 
 	conversationDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/conversation"
-	documentDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/document"
+	ragDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/rag"
 	whatsappDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/whatsapp"
 	"github.com/elprogramadorgt/lucidRAG/internal/transport/http/v1/whatsapp/dto"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
 
+// Handler handles WhatsApp webhook requests.
 type Handler struct {
 	svc                whatsappDomain.Service
 	convSvc            conversationDomain.Service
-	docSvc             documentDomain.Service
+	ragSvc             ragDomain.Service
 	webhookVerifyToken string
 	log                *logger.Logger
 }
 
+// HandlerConfig contains dependencies for creating a WhatsApp handler.
 type HandlerConfig struct {
 	WhatsAppSvc        whatsappDomain.Service
 	ConversationSvc    conversationDomain.Service
-	DocumentSvc        documentDomain.Service
+	RAGSvc             ragDomain.Service
 	WebhookVerifyToken string
 	Log                *logger.Logger
 }
 
+// NewHandler creates a new WhatsApp handler.
 func NewHandler(cfg HandlerConfig) *Handler {
 	return &Handler{
 		svc:                cfg.WhatsAppSvc,
 		convSvc:            cfg.ConversationSvc,
-		docSvc:             cfg.DocumentSvc,
+		ragSvc:             cfg.RAGSvc,
 		webhookVerifyToken: cfg.WebhookVerifyToken,
 		log:                cfg.Log.With("handler", "whatsapp"),
 	}
@@ -123,18 +126,18 @@ func (h *Handler) processMessage(ctx *gin.Context, msg dto.Message, contacts []d
 
 	h.log.Info("message saved", "message_id", savedMsg.ID, "conversation_id", savedMsg.ConversationID)
 
-	if h.docSvc == nil {
-		h.log.Debug("document service not configured, skipping RAG query")
+	if h.ragSvc == nil {
+		h.log.Debug("RAG service not configured, skipping RAG query")
 		return
 	}
 
-	ragQuery := documentDomain.RAGQuery{
+	ragQuery := ragDomain.Query{
 		Query:     content,
 		TopK:      5,
 		Threshold: 0.7,
 	}
 
-	ragResponse, err := h.docSvc.QueryRAG(ctx.Request.Context(), ragQuery)
+	ragResponse, err := h.ragSvc.Query(ctx.Request.Context(), ragQuery)
 	if err != nil {
 		h.log.Error("failed to query RAG", "error", err)
 		return

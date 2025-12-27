@@ -227,9 +227,10 @@ func TestPersistLogWithAttributes(t *testing.T) {
 	store := &mockLogStore{}
 	handler := &mockHandler{enabled: true}
 	mh := NewMultiHandler([]slog.Handler{handler}, store)
+	defer mh.Stop()
 
 	// Add base attributes
-	mh = mh.WithAttrs([]slog.Attr{slog.String("source", "test")}).(*MultiHandler)
+	mhWithAttrs := mh.WithAttrs([]slog.Attr{slog.String("source", "test")}).(*MultiHandler)
 
 	record := slog.Record{
 		Time:    time.Now(),
@@ -240,10 +241,10 @@ func TestPersistLogWithAttributes(t *testing.T) {
 	record.AddAttrs(slog.String("user_id", "user-456"))
 	record.AddAttrs(slog.String("custom_key", "custom_value"))
 
-	// Call persistLog directly
-	mh.persistLog(record)
+	// Use Handle which queues to the worker
+	_ = mhWithAttrs.Handle(context.Background(), record)
 
-	// Wait a bit for goroutine to complete
+	// Wait a bit for worker to process
 	time.Sleep(100 * time.Millisecond)
 
 	if len(store.entries) != 1 {

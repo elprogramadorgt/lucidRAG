@@ -1,0 +1,713 @@
+{
+	"info": {
+		"_postman_id": "lucidrag-api-collection",
+		"name": "LucidRAG API",
+		"description": "API collection for LucidRAG - A RAG-based document query system with WhatsApp integration",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"auth": {
+		"type": "noauth"
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [""]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [""]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "http://localhost:8080",
+			"type": "string"
+		}
+	],
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Liveness Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/healthz",
+							"host": ["{{baseUrl}}"],
+							"path": ["healthz"]
+						},
+						"description": "Liveness probe - returns 200 if the server is running"
+					},
+					"response": []
+				},
+				{
+					"name": "Readiness Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/readyz",
+							"host": ["{{baseUrl}}"],
+							"path": ["readyz"]
+						},
+						"description": "Readiness probe - returns 200 if the server and database are ready"
+					},
+					"response": []
+				}
+			],
+			"description": "Health check endpoints for Kubernetes probes"
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Register",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.user && jsonData.user.id) {",
+									"        pm.environment.set('userId', jsonData.user.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{userEmail}}\",\n    \"password\": \"{{userPassword}}\",\n    \"first_name\": \"{{firstName}}\",\n    \"last_name\": \"{{lastName}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/register",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "register"]
+						},
+						"description": "Register a new user account"
+					},
+					"response": []
+				},
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.user && jsonData.user.id) {",
+									"        pm.environment.set('userId', jsonData.user.id);",
+									"    }",
+									"    // Extract auth cookie for subsequent requests",
+									"    var cookies = pm.response.headers.get('Set-Cookie');",
+									"    if (cookies) {",
+									"        var match = cookies.match(/lucidrag_token=([^;]+)/);",
+									"        if (match) {",
+									"            pm.environment.set('authToken', match[1]);",
+									"        }",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"email\": \"{{userEmail}}\",\n    \"password\": \"{{userPassword}}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/login",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Login with email and password. Sets an HTTP-only cookie for authentication."
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/logout",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "logout"]
+						},
+						"description": "Logout and clear the authentication cookie"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}",
+								"description": "Auth cookie (automatically set after login)"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/me",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "me"]
+						},
+						"description": "Get the currently authenticated user's profile"
+					},
+					"response": []
+				}
+			],
+			"description": "Authentication endpoints for user registration, login, and session management"
+		},
+		{
+			"name": "OAuth",
+			"item": [
+				{
+					"name": "Get OAuth Providers",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/oauth/providers",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "oauth", "providers"]
+						},
+						"description": "Get list of enabled OAuth providers (Google, Facebook, Apple)"
+					},
+					"response": []
+				},
+				{
+					"name": "Google Login (Redirect)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/oauth/google",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "oauth", "google"]
+						},
+						"description": "Initiates Google OAuth flow - redirects to Google login page"
+					},
+					"response": []
+				},
+				{
+					"name": "Facebook Login (Redirect)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/oauth/facebook",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "oauth", "facebook"]
+						},
+						"description": "Initiates Facebook OAuth flow - redirects to Facebook login page"
+					},
+					"response": []
+				},
+				{
+					"name": "Apple Login (Redirect)",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/auth/oauth/apple",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "auth", "oauth", "apple"]
+						},
+						"description": "Initiates Apple OAuth flow - redirects to Apple login page"
+					},
+					"response": []
+				}
+			],
+			"description": "OAuth social login endpoints for Google, Facebook, and Apple"
+		},
+		{
+			"name": "Documents",
+			"item": [
+				{
+					"name": "List Documents",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/documents?limit=10&offset=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "documents"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "10",
+									"description": "Number of documents to return (default: 10)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Offset for pagination (default: 0)"
+								}
+							]
+						},
+						"description": "List all documents with pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Document by ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/documents?id={{documentId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "documents"],
+							"query": [
+								{
+									"key": "id",
+									"value": "{{documentId}}",
+									"description": "Document ID to retrieve"
+								}
+							]
+						},
+						"description": "Get a specific document by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Document",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 201) {",
+									"    var jsonData = pm.response.json();",
+									"    if (jsonData.id) {",
+									"        pm.environment.set('documentId', jsonData.id);",
+									"    }",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"title\": \"Sample Document\",\n    \"content\": \"This is the content of the document that will be chunked and embedded for RAG queries.\",\n    \"source\": \"manual\",\n    \"metadata\": \"{\\\"category\\\": \\\"documentation\\\"}\"\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/documents",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "documents"]
+						},
+						"description": "Create a new document. The content will be automatically chunked and embedded for RAG queries."
+					},
+					"response": []
+				},
+				{
+					"name": "Update Document",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"{{documentId}}\",\n    \"title\": \"Updated Document Title\",\n    \"content\": \"Updated content of the document.\",\n    \"source\": \"manual\",\n    \"metadata\": \"{\\\"category\\\": \\\"updated\\\"}\",\n    \"is_active\": true\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/documents",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "documents"]
+						},
+						"description": "Update an existing document"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Document",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/documents?id={{documentId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "documents"],
+							"query": [
+								{
+									"key": "id",
+									"value": "{{documentId}}",
+									"description": "Document ID to delete"
+								}
+							]
+						},
+						"description": "Delete a document by ID"
+					},
+					"response": []
+				}
+			],
+			"description": "Document CRUD operations for managing RAG knowledge base"
+		},
+		{
+			"name": "RAG",
+			"item": [
+				{
+					"name": "Query RAG",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"query\": \"What is LucidRAG?\",\n    \"top_k\": 5,\n    \"threshold\": 0.7\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/rag/query",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "rag", "query"]
+						},
+						"description": "Query the RAG system with a natural language question. Returns relevant document chunks and an AI-generated answer."
+					},
+					"response": []
+				}
+			],
+			"description": "RAG (Retrieval Augmented Generation) query endpoint"
+		},
+		{
+			"name": "Conversations",
+			"item": [
+				{
+					"name": "List Conversations",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/conversations?limit=20&offset=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "conversations"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "20",
+									"description": "Number of conversations to return (default: 20)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Offset for pagination (default: 0)"
+								}
+							]
+						},
+						"description": "List all conversations for the authenticated user (or all for admins)"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Conversation",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/conversations/{{conversationId}}",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "conversations", "{{conversationId}}"]
+						},
+						"description": "Get a specific conversation by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Conversation Messages",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/conversations/{{conversationId}}/messages?limit=50&offset=0",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "conversations", "{{conversationId}}", "messages"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "Number of messages to return (default: 50)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Offset for pagination (default: 0)"
+								}
+							]
+						},
+						"description": "Get messages for a specific conversation"
+					},
+					"response": []
+				}
+			],
+			"description": "Conversation endpoints for viewing chat history (primarily from WhatsApp)"
+		},
+		{
+			"name": "WhatsApp",
+			"item": [
+				{
+					"name": "Webhook Verification",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/whatsapp/webhook?hub.mode=subscribe&hub.verify_token={{webhookVerifyToken}}&hub.challenge=test_challenge",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "whatsapp", "webhook"],
+							"query": [
+								{
+									"key": "hub.mode",
+									"value": "subscribe",
+									"description": "Must be 'subscribe'"
+								},
+								{
+									"key": "hub.verify_token",
+									"value": "{{webhookVerifyToken}}",
+									"description": "Verification token configured in WhatsApp Business"
+								},
+								{
+									"key": "hub.challenge",
+									"value": "test_challenge",
+									"description": "Challenge string to echo back"
+								}
+							]
+						},
+						"description": "WhatsApp webhook verification endpoint - used by Meta to verify webhook ownership"
+					},
+					"response": []
+				},
+				{
+					"name": "Incoming Message (Webhook)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"object\": \"whatsapp_business_account\",\n    \"entry\": [\n        {\n            \"id\": \"123456789\",\n            \"changes\": [\n                {\n                    \"value\": {\n                        \"messaging_product\": \"whatsapp\",\n                        \"metadata\": {\n                            \"display_phone_number\": \"15551234567\",\n                            \"phone_number_id\": \"987654321\"\n                        },\n                        \"contacts\": [\n                            {\n                                \"profile\": {\n                                    \"name\": \"Test User\"\n                                },\n                                \"wa_id\": \"15559876543\"\n                            }\n                        ],\n                        \"messages\": [\n                            {\n                                \"from\": \"15559876543\",\n                                \"id\": \"wamid.test123\",\n                                \"timestamp\": \"1234567890\",\n                                \"type\": \"text\",\n                                \"text\": {\n                                    \"body\": \"Hello, I have a question about your product.\"\n                                }\n                            }\n                        ]\n                    },\n                    \"field\": \"messages\"\n                }\n            ]\n        }\n    ]\n}"
+						},
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/whatsapp/webhook",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "whatsapp", "webhook"]
+						},
+						"description": "WhatsApp incoming message webhook - receives messages from WhatsApp Business API"
+					},
+					"response": []
+				}
+			],
+			"description": "WhatsApp Business API webhook endpoints"
+		},
+		{
+			"name": "System (Admin)",
+			"item": [
+				{
+					"name": "Get Server Info",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/system/info",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "system", "info"]
+						},
+						"description": "Get server information including uptime, version, runtime stats, and available endpoints. Requires admin role."
+					},
+					"response": []
+				},
+				{
+					"name": "List System Logs",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/system/logs?limit=50&offset=0&level=&search=&request_id=",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "system", "logs"],
+							"query": [
+								{
+									"key": "limit",
+									"value": "50",
+									"description": "Number of logs to return (default: 50)"
+								},
+								{
+									"key": "offset",
+									"value": "0",
+									"description": "Offset for pagination (default: 0)"
+								},
+								{
+									"key": "level",
+									"value": "",
+									"description": "Filter by log level (debug, info, warn, error)"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Search term to filter logs"
+								},
+								{
+									"key": "request_id",
+									"value": "",
+									"description": "Filter by request ID"
+								}
+							]
+						},
+						"description": "List system logs with filtering. Requires admin role."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Log Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/system/logs/stats",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "system", "logs", "stats"]
+						},
+						"description": "Get log statistics by level. Requires admin role."
+					},
+					"response": []
+				},
+				{
+					"name": "Cleanup Old Logs",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Cookie",
+								"value": "lucidrag_token={{authToken}}"
+							}
+						],
+						"url": {
+							"raw": "{{baseUrl}}/api/v1/system/logs?days=30",
+							"host": ["{{baseUrl}}"],
+							"path": ["api", "v1", "system", "logs"],
+							"query": [
+								{
+									"key": "days",
+									"value": "30",
+									"description": "Delete logs older than this many days (default: 30)"
+								}
+							]
+						},
+						"description": "Delete logs older than specified number of days. Requires admin role."
+					},
+					"response": []
+				}
+			],
+			"description": "System administration endpoints - require admin role"
+		}
+	]
+}

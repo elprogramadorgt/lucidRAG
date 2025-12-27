@@ -2,12 +2,14 @@ package user
 
 import "context"
 
+// Claims represents the JWT token claims for a user.
 type Claims struct {
 	UserID string `json:"user_id"`
 	Email  string `json:"email"`
 	Role   string `json:"role"`
 }
 
+// Service defines the business operations for user authentication and management.
 type Service interface {
 	Register(ctx context.Context, newUser User) (*User, error)
 	RegisterOAuth(ctx context.Context, newUser User, provider, providerID string) (*User, error)

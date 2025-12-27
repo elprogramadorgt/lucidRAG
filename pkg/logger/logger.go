@@ -21,9 +21,11 @@ const (
 	UserIDKey    ContextKey = "user_id"
 )
 
+// Logger wraps slog.Logger with additional features like custom levels and log persistence.
 type Logger struct {
-	log   *slog.Logger
-	level *slog.LevelVar
+	log     *slog.Logger
+	level   *slog.LevelVar
+	handler *MultiHandler // nil if no store configured
 }
 
 type Options struct {
@@ -69,15 +71,26 @@ func New(opts ...Options) *Logger {
 	}
 
 	var handler slog.Handler
+	var multiHandler *MultiHandler
 	if opt.Store != nil {
-		handler = NewMultiHandler([]slog.Handler{stdoutHandler}, opt.Store)
+		multiHandler = NewMultiHandler([]slog.Handler{stdoutHandler}, opt.Store)
+		handler = multiHandler
 	} else {
 		handler = stdoutHandler
 	}
 
 	return &Logger{
-		log:   slog.New(handler),
-		level: levelVar,
+		log:     slog.New(handler),
+		level:   levelVar,
+		handler: multiHandler,
+	}
+}
+
+// Stop flushes pending log entries and releases resources.
+// Call this during application shutdown. Safe to call multiple times or on nil.
+func (l *Logger) Stop() {
+	if l != nil && l.handler != nil {
+		l.handler.Stop()
 	}
 }
 
@@ -186,16 +199,18 @@ func (l *Logger) CriticalContext(ctx context.Context, msg string, args ...any) {
 // With returns a new Logger with the given attributes.
 func (l *Logger) With(args ...any) *Logger {
 	return &Logger{
-		log:   l.log.With(args...),
-		level: l.level,
+		log:     l.log.With(args...),
+		level:   l.level,
+		handler: l.handler,
 	}
 }
 
 // WithGroup returns a new Logger with the given group name.
 func (l *Logger) WithGroup(name string) *Logger {
 	return &Logger{
-		log:   l.log.WithGroup(name),
-		level: l.level,
+		log:     l.log.WithGroup(name),
+		level:   l.level,
+		handler: l.handler,
 	}
 }
 

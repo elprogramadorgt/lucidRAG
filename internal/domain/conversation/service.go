@@ -1,12 +1,15 @@
 package conversation
 
-import "context"
+import (
+	"context"
 
-type UserContext struct {
-	UserID  string
-	IsAdmin bool
-}
+	"github.com/elprogramadorgt/lucidRAG/internal/domain/common"
+)
 
+// UserContext is an alias for common.UserContext for backwards compatibility.
+type UserContext = common.UserContext
+
+// Service defines the business operations for conversations and messages.
 type Service interface {
 	GetOrCreateConversation(ctx context.Context, userID, phoneNumber, contactName string) (*Conversation, error)
 	ListConversations(ctx context.Context, userCtx UserContext, limit, offset int) ([]Conversation, int64, error)

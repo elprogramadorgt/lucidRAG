@@ -10,10 +10,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+// UserRepo implements user.Repository using MongoDB.
 type UserRepo struct {
 	collection *mongo.Collection
 }
 
+// NewUserRepo creates a new UserRepo with the given database client.
 func NewUserRepo(client *DbClient) *UserRepo {
 	return &UserRepo{
 		collection: client.DB.Collection("users"),

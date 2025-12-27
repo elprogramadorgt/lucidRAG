@@ -2,13 +2,16 @@ package user
 
 import "time"
 
+// Role represents a user's authorization level.
 type Role string
 
+// User role constants.
 const (
 	RoleUser  Role = "user"
 	RoleAdmin Role = "admin"
 )
 
+// User represents an authenticated user account.
 type User struct {
 	ID           string    `json:"id" bson:"_id,omitempty"`
 	Email        string    `json:"email" bson:"email"`

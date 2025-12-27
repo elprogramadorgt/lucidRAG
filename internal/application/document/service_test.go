@@ -85,54 +85,6 @@ func (m *mockDocumentRepo) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// mockChunkRepo is a mock implementation of ChunkRepository
-type mockChunkRepo struct {
-	chunks []documentDomain.Chunk
-}
-
-func newMockChunkRepo() *mockChunkRepo {
-	return &mockChunkRepo{
-		chunks: make([]documentDomain.Chunk, 0),
-	}
-}
-
-func (m *mockChunkRepo) CreateBatch(ctx context.Context, chunks []documentDomain.Chunk) error {
-	m.chunks = append(m.chunks, chunks...)
-	return nil
-}
-
-func (m *mockChunkRepo) Search(ctx context.Context, embedding []float64, topK int, threshold float64) ([]documentDomain.Chunk, error) {
-	if len(m.chunks) == 0 {
-		return []documentDomain.Chunk{}, nil
-	}
-	limit := topK
-	if limit > len(m.chunks) {
-		limit = len(m.chunks)
-	}
-	return m.chunks[:limit], nil
-}
-
-func (m *mockChunkRepo) GetByDocumentID(ctx context.Context, documentID string) ([]documentDomain.Chunk, error) {
-	result := make([]documentDomain.Chunk, 0)
-	for _, chunk := range m.chunks {
-		if chunk.DocumentID == documentID {
-			result = append(result, chunk)
-		}
-	}
-	return result, nil
-}
-
-func (m *mockChunkRepo) DeleteByDocumentID(ctx context.Context, documentID string) error {
-	newChunks := make([]documentDomain.Chunk, 0)
-	for _, chunk := range m.chunks {
-		if chunk.DocumentID != documentID {
-			newChunks = append(newChunks, chunk)
-		}
-	}
-	m.chunks = newChunks
-	return nil
-}
-
 func TestNewService(t *testing.T) {
 	repo := newMockDocumentRepo()
 	svc := NewService(ServiceConfig{
@@ -147,9 +99,7 @@ func TestNewService(t *testing.T) {
 func TestNewServiceDefaults(t *testing.T) {
 	repo := newMockDocumentRepo()
 	svc := NewService(ServiceConfig{
-		Repo:           repo,
-		EmbeddingModel: "",
-		ModelName:      "",
+		Repo: repo,
 	})
 
 	if svc == nil {
@@ -546,71 +496,3 @@ func TestDeleteDocumentForbidden(t *testing.T) {
 	}
 }
 
-func TestQueryRAGEmptyQuery(t *testing.T) {
-	repo := newMockDocumentRepo()
-	svc := NewService(ServiceConfig{
-		Repo: repo,
-	})
-
-	ctx := context.Background()
-	query := documentDomain.RAGQuery{
-		Query: "",
-	}
-
-	_, err := svc.QueryRAG(ctx, query)
-	if !errors.Is(err, ErrInvalidQuery) {
-		t.Errorf("Expected ErrInvalidQuery for empty query, got %v", err)
-	}
-}
-
-func TestQueryRAGNotConfigured(t *testing.T) {
-	repo := newMockDocumentRepo()
-	svc := NewService(ServiceConfig{
-		Repo: repo,
-		// No OpenAI client or chunk repo configured
-	})
-
-	ctx := context.Background()
-	query := documentDomain.RAGQuery{
-		Query: "What is the meaning of life?",
-	}
-
-	resp, err := svc.QueryRAG(ctx, query)
-	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
-	}
-
-	if resp.Answer == "" {
-		t.Error("Expected non-empty response")
-	}
-	if resp.ConfidenceScore != 0.0 {
-		t.Errorf("Expected confidence 0.0 when not configured, got %f", resp.ConfidenceScore)
-	}
-}
-
-func TestQueryRAGDefaultValues(t *testing.T) {
-	repo := newMockDocumentRepo()
-	chunkRepo := newMockChunkRepo()
-	svc := NewService(ServiceConfig{
-		Repo:      repo,
-		ChunkRepo: chunkRepo,
-		// OpenAI client is nil, so RAG will return "not configured" response
-	})
-
-	ctx := context.Background()
-	query := documentDomain.RAGQuery{
-		Query:     "Test query",
-		TopK:      0, // Should default to 5
-		Threshold: 0, // Should default to 0.7
-	}
-
-	resp, err := svc.QueryRAG(ctx, query)
-	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
-	}
-
-	// Since OpenAI client is nil, we should get "not configured" response
-	if resp.Answer == "" {
-		t.Error("Expected non-empty response")
-	}
-}
