@@ -37,15 +37,14 @@ lucidRAG follows clean architecture principles:
 
 - **cmd/**: Application entry points (main.go files)
 - **internal/**: Private application code
+  - **application/**: Application services (conversation, document, user, whatsapp)
   - **config/**: Configuration management
   - **domain/**: Core business models and interfaces
-  - **handler/**: HTTP request handlers
-  - **middleware/**: HTTP middleware
-  - **rag/**: RAG implementation
-  - **repository/**: Data persistence
-  - **service/**: Business logic
-  - **whatsapp/**: WhatsApp API client
-- **pkg/**: Public reusable packages
+  - **repository/**: Data persistence (MongoDB implementations)
+  - **transport/http/**: HTTP handlers and middleware
+    - **middleware/**: Auth, CORS, rate limiting
+    - **v1/**: API v1 handlers (auth, document, conversation, rag, system)
+- **pkg/**: Public reusable packages (chunker, logger, openai)
 
 ### Frontend (Angular)
 
@@ -60,8 +59,8 @@ lucidRAG follows clean architecture principles:
 
 **Backend:**
 ```bash
-# Terminal 1: Start PostgreSQL
-docker-compose up postgres
+# Terminal 1: Start MongoDB
+docker-compose up mongo
 
 # Terminal 2: Run API server
 make run
@@ -70,7 +69,7 @@ make run
 **Frontend:**
 ```bash
 # Terminal 3: Start Angular dev server
-cd admin-ui
+cd ui
 npm start
 ```
 
@@ -90,7 +89,7 @@ npm start
 make test
 
 # Angular
-cd admin-ui && npm test
+cd ui && npm test
 ```
 
 **Manual Testing:**
@@ -102,39 +101,41 @@ cd admin-ui && npm test
 
 ### Adding a New API Endpoint
 
-1. Define domain model in `internal/domain/models.go`
-2. Add interface method in `internal/domain/interfaces.go`
-3. Implement service in appropriate service package
-4. Create handler in `internal/handler/`
-5. Register route in `cmd/api/main.go`
-6. Add tests
+1. Define domain model in `internal/domain/<entity>/model.go`
+2. Add repository interface in `internal/domain/<entity>/repository.go`
+3. Add service interface in `internal/domain/<entity>/service.go`
+4. Implement repository in `internal/repository/mongo/`
+5. Implement service in `internal/application/<entity>/`
+6. Create handler in `internal/transport/http/v1/<entity>/`
+7. Register route in `cmd/api/main.go`
+8. Add tests
 
 Example:
 ```go
-// 1. Domain model
+// 1. Domain model (internal/domain/user/model.go)
 type User struct {
     ID    string
     Name  string
     Email string
 }
 
-// 2. Interface
-type UserService interface {
+// 2. Repository interface (internal/domain/user/repository.go)
+type Repository interface {
+    GetByID(ctx context.Context, id string) (*User, error)
+}
+
+// 3. Service interface (internal/domain/user/service.go)
+type Service interface {
     GetUser(ctx context.Context, id string) (*User, error)
 }
 
-// 3. Service implementation
-func (s *service) GetUser(ctx context.Context, id string) (*User, error) {
-    // Implementation
+// 4. Handler (internal/transport/http/v1/user/handler.go)
+func (h *Handler) GetUser(c *gin.Context) {
+    // Handler logic using Gin context
 }
 
-// 4. Handler
-func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) {
-    // Handler logic
-}
-
-// 5. Route registration
-mux.HandleFunc("/api/v1/users", userHandler.GetUser)
+// 5. Route registration (cmd/api/main.go)
+userHandler.Register(v1.Group("/users", authMw), handler)
 ```
 
 ### Adding a New Angular Component

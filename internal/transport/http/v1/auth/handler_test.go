@@ -79,15 +79,7 @@ func setupHandlerTestRouter() *gin.Engine {
 
 func createTestHandler(mockSvc *mockUserServiceHandler) *Handler {
 	log := logger.New(logger.Options{Level: "error"})
-	return NewHandler(
-		mockSvc,
-		log,
-		CookieConfig{
-			Domain:      "localhost",
-			Secure:      false,
-			ExpiryHours: 24,
-		},
-	)
+	return NewHandler(mockSvc, log)
 }
 
 func TestRegisterSuccess(t *testing.T) {
@@ -115,6 +107,9 @@ func TestRegisterSuccess(t *testing.T) {
 
 	if result.User == nil {
 		t.Error("Expected user in response")
+	}
+	if result.Token == "" {
+		t.Error("Expected token in response")
 	}
 }
 
@@ -179,17 +174,16 @@ func TestLoginSuccess(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", resp.Code)
 	}
 
-	// Check that cookie was set
-	cookies := resp.Result().Cookies()
-	found := false
-	for _, c := range cookies {
-		if c.Name == cookieName {
-			found = true
-			break
-		}
+	var result authResponse
+	if err := json.Unmarshal(resp.Body.Bytes(), &result); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
 	}
-	if !found {
-		t.Error("Expected auth cookie to be set")
+
+	if result.Token == "" {
+		t.Error("Expected token in response")
+	}
+	if result.User == nil {
+		t.Error("Expected user in response")
 	}
 }
 
@@ -251,15 +245,10 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Expected status 200, got %d", resp.Code)
 	}
 
-	// Check that cookie was cleared (MaxAge = -1)
-	cookies := resp.Result().Cookies()
-	for _, c := range cookies {
-		if c.Name == cookieName {
-			if c.MaxAge >= 0 {
-				t.Error("Expected cookie to be cleared (MaxAge < 0)")
-			}
-			break
-		}
+	var result map[string]string
+	json.Unmarshal(resp.Body.Bytes(), &result)
+	if result["message"] != "logged out" {
+		t.Errorf("Expected message 'logged out', got %s", result["message"])
 	}
 }
 
@@ -326,28 +315,10 @@ func TestMeUserNotFound(t *testing.T) {
 	}
 }
 
-func TestCookieConfig(t *testing.T) {
-	cfg := CookieConfig{
-		Domain:      "example.com",
-		Secure:      true,
-		ExpiryHours: 48,
-	}
-
-	if cfg.Domain != "example.com" {
-		t.Errorf("Expected domain example.com, got %s", cfg.Domain)
-	}
-	if !cfg.Secure {
-		t.Error("Expected secure to be true")
-	}
-	if cfg.ExpiryHours != 48 {
-		t.Errorf("Expected expiry hours 48, got %d", cfg.ExpiryHours)
-	}
-}
-
 func TestNewHandler(t *testing.T) {
 	mockSvc := &mockUserServiceHandler{}
 	log := logger.New(logger.Options{Level: "error"})
-	handler := NewHandler(mockSvc, log, CookieConfig{})
+	handler := NewHandler(mockSvc, log)
 
 	if handler == nil {
 		t.Fatal("Expected handler to be created")
