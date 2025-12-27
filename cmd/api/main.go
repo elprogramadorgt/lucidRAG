@@ -104,7 +104,7 @@ func main() {
 
 	v1 := r.Group("/api/v1")
 	authHandler.Register(v1, authHandler.NewHandler(userSvc, log), authMw)
-	authHandler.RegisterOAuth(v1, authHandler.NewOAuthHandler(userSvc, log, cfg.Auth.OAuth))
+	authHandler.RegisterOAuth(v1, authHandler.NewOAuthHandler(userSvc, log, cfg.Auth.OAuth, cfg.Auth.JWTSecret))
 	whatsappHandler.Register(v1, whatsappHdlr)
 	ragHandler.Register(v1.Group("/rag", authMw), ragHandler.NewHandler(documentSvc, log))
 	documentHandler.Register(v1.Group("/documents", authMw), documentHandler.NewHandler(documentSvc, log))

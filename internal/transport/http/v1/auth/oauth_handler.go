@@ -2,13 +2,17 @@ package auth
 
 import (
 	"context"
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,17 +22,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const stateExpiry = 10 * time.Minute
+
 type OAuthHandler struct {
 	userSvc     userDomain.Service
 	log         *logger.Logger
 	oauthConfig config.OAuthConfig
+	signingKey  []byte
 }
 
-func NewOAuthHandler(userSvc userDomain.Service, log *logger.Logger, oauthCfg config.OAuthConfig) *OAuthHandler {
+func NewOAuthHandler(userSvc userDomain.Service, log *logger.Logger, oauthCfg config.OAuthConfig, jwtSecret string) *OAuthHandler {
 	return &OAuthHandler{
 		userSvc:     userSvc,
 		log:         log.With("handler", "oauth"),
 		oauthConfig: oauthCfg,
+		signingKey:  []byte(jwtSecret),
 	}
 }
 
@@ -57,13 +65,55 @@ func (h *OAuthHandler) GetProviders(ctx *gin.Context) {
 	})
 }
 
-// generateState creates a random state parameter for OAuth
-func generateState() (string, error) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+// generateSignedState creates a signed state token with timestamp for CSRF protection
+// Format: nonce.timestamp.signature (all base64url encoded)
+func (h *OAuthHandler) generateSignedState() (string, error) {
+	nonce := make([]byte, 16)
+	if _, err := rand.Read(nonce); err != nil {
 		return "", err
 	}
-	return base64.URLEncoding.EncodeToString(b), nil
+
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	nonceB64 := base64.RawURLEncoding.EncodeToString(nonce)
+	payload := nonceB64 + "." + timestamp
+
+	mac := hmac.New(sha256.New, h.signingKey)
+	mac.Write([]byte(payload))
+	signature := hex.EncodeToString(mac.Sum(nil))
+
+	return payload + "." + signature, nil
+}
+
+// verifySignedState validates the state token and checks expiry
+func (h *OAuthHandler) verifySignedState(state string) bool {
+	parts := strings.Split(state, ".")
+	if len(parts) != 3 {
+		return false
+	}
+
+	payload := parts[0] + "." + parts[1]
+	providedSig := parts[2]
+
+	// Verify signature
+	mac := hmac.New(sha256.New, h.signingKey)
+	mac.Write([]byte(payload))
+	expectedSig := hex.EncodeToString(mac.Sum(nil))
+
+	if !hmac.Equal([]byte(providedSig), []byte(expectedSig)) {
+		return false
+	}
+
+	// Check timestamp expiry
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return false
+	}
+
+	if time.Since(time.Unix(timestamp, 0)) > stateExpiry {
+		return false
+	}
+
+	return true
 }
 
 // Google OAuth
@@ -74,15 +124,12 @@ func (h *OAuthHandler) GoogleLogin(ctx *gin.Context) {
 		return
 	}
 
-	state, err := generateState()
+	state, err := h.generateSignedState()
 	if err != nil {
 		h.log.Error("failed to generate state", "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initiate OAuth"})
 		return
 	}
-
-	// Store state in cookie for verification
-	ctx.SetCookie("oauth_state", state, 600, "/", "", false, true)
 
 	redirectURL := fmt.Sprintf("%s/api/v1/auth/oauth/google/callback", h.oauthConfig.RedirectBaseURL)
 	authURL := fmt.Sprintf(
@@ -101,10 +148,9 @@ func (h *OAuthHandler) GoogleCallback(ctx *gin.Context) {
 		return
 	}
 
-	// Verify state
+	// Verify signed state
 	state := ctx.Query("state")
-	storedState, err := ctx.Cookie("oauth_state")
-	if err != nil || state != storedState {
+	if !h.verifySignedState(state) {
 		h.log.Warn("oauth_callback", "provider", "google", "error", "invalid state")
 		h.redirectWithError(ctx, "Invalid OAuth state")
 		return
@@ -219,14 +265,12 @@ func (h *OAuthHandler) FacebookLogin(ctx *gin.Context) {
 		return
 	}
 
-	state, err := generateState()
+	state, err := h.generateSignedState()
 	if err != nil {
 		h.log.Error("failed to generate state", "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initiate OAuth"})
 		return
 	}
-
-	ctx.SetCookie("oauth_state", state, 600, "/", "", false, true)
 
 	redirectURL := fmt.Sprintf("%s/api/v1/auth/oauth/facebook/callback", h.oauthConfig.RedirectBaseURL)
 	authURL := fmt.Sprintf(
@@ -245,9 +289,9 @@ func (h *OAuthHandler) FacebookCallback(ctx *gin.Context) {
 		return
 	}
 
+	// Verify signed state
 	state := ctx.Query("state")
-	storedState, err := ctx.Cookie("oauth_state")
-	if err != nil || state != storedState {
+	if !h.verifySignedState(state) {
 		h.log.Warn("oauth_callback", "provider", "facebook", "error", "invalid state")
 		h.redirectWithError(ctx, "Invalid OAuth state")
 		return
@@ -358,14 +402,12 @@ func (h *OAuthHandler) AppleLogin(ctx *gin.Context) {
 		return
 	}
 
-	state, err := generateState()
+	state, err := h.generateSignedState()
 	if err != nil {
 		h.log.Error("failed to generate state", "error", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "failed to initiate OAuth"})
 		return
 	}
-
-	ctx.SetCookie("oauth_state", state, 600, "/", "", false, true)
 
 	redirectURL := fmt.Sprintf("%s/api/v1/auth/oauth/apple/callback", h.oauthConfig.RedirectBaseURL)
 	authURL := fmt.Sprintf(
@@ -390,8 +432,8 @@ func (h *OAuthHandler) AppleCallback(ctx *gin.Context) {
 		state = ctx.Query("state")
 	}
 
-	storedState, err := ctx.Cookie("oauth_state")
-	if err != nil || state != storedState {
+	// Verify signed state
+	if !h.verifySignedState(state) {
 		h.log.Warn("oauth_callback", "provider", "apple", "error", "invalid state")
 		h.redirectWithError(ctx, "Invalid OAuth state")
 		return
