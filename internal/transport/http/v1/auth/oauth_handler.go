@@ -19,18 +19,16 @@ import (
 )
 
 type OAuthHandler struct {
-	userSvc      userDomain.Service
-	log          *logger.Logger
-	oauthConfig  config.OAuthConfig
-	cookieConfig CookieConfig
+	userSvc     userDomain.Service
+	log         *logger.Logger
+	oauthConfig config.OAuthConfig
 }
 
-func NewOAuthHandler(userSvc userDomain.Service, log *logger.Logger, oauthCfg config.OAuthConfig, cookieCfg CookieConfig) *OAuthHandler {
+func NewOAuthHandler(userSvc userDomain.Service, log *logger.Logger, oauthCfg config.OAuthConfig) *OAuthHandler {
 	return &OAuthHandler{
-		userSvc:      userSvc,
-		log:          log.With("handler", "oauth"),
-		oauthConfig:  oauthCfg,
-		cookieConfig: cookieCfg,
+		userSvc:     userSvc,
+		log:         log.With("handler", "oauth"),
+		oauthConfig: oauthCfg,
 	}
 }
 
@@ -84,7 +82,7 @@ func (h *OAuthHandler) GoogleLogin(ctx *gin.Context) {
 	}
 
 	// Store state in cookie for verification
-	ctx.SetCookie("oauth_state", state, 600, "/", h.cookieConfig.Domain, h.cookieConfig.Secure, true)
+	ctx.SetCookie("oauth_state", state, 600, "/", "", false, true)
 
 	redirectURL := fmt.Sprintf("%s/api/v1/auth/oauth/google/callback", h.oauthConfig.RedirectBaseURL)
 	authURL := fmt.Sprintf(
@@ -228,7 +226,7 @@ func (h *OAuthHandler) FacebookLogin(ctx *gin.Context) {
 		return
 	}
 
-	ctx.SetCookie("oauth_state", state, 600, "/", h.cookieConfig.Domain, h.cookieConfig.Secure, true)
+	ctx.SetCookie("oauth_state", state, 600, "/", "", false, true)
 
 	redirectURL := fmt.Sprintf("%s/api/v1/auth/oauth/facebook/callback", h.oauthConfig.RedirectBaseURL)
 	authURL := fmt.Sprintf(
@@ -367,7 +365,7 @@ func (h *OAuthHandler) AppleLogin(ctx *gin.Context) {
 		return
 	}
 
-	ctx.SetCookie("oauth_state", state, 600, "/", h.cookieConfig.Domain, h.cookieConfig.Secure, true)
+	ctx.SetCookie("oauth_state", state, 600, "/", "", false, true)
 
 	redirectURL := fmt.Sprintf("%s/api/v1/auth/oauth/apple/callback", h.oauthConfig.RedirectBaseURL)
 	authURL := fmt.Sprintf(
@@ -568,26 +566,9 @@ func (h *OAuthHandler) handleOAuthUser(ctx *gin.Context, userInfo *OAuthUserInfo
 		return
 	}
 
-	// Set auth cookie
-	h.setAuthCookie(ctx, token)
-
-	// Redirect to frontend with success
-	redirectURL := fmt.Sprintf("%s/oauth/callback?success=true", h.oauthConfig.RedirectBaseURL)
+	// Redirect to frontend with token in URL
+	redirectURL := fmt.Sprintf("%s/oauth/callback?token=%s", h.oauthConfig.RedirectBaseURL, url.QueryEscape(token))
 	ctx.Redirect(http.StatusTemporaryRedirect, redirectURL)
-}
-
-func (h *OAuthHandler) setAuthCookie(ctx *gin.Context, token string) {
-	maxAge := h.cookieConfig.ExpiryHours * 3600
-	ctx.SetSameSite(http.SameSiteLaxMode)
-	ctx.SetCookie(
-		cookieName,
-		token,
-		maxAge,
-		"/",
-		h.cookieConfig.Domain,
-		h.cookieConfig.Secure,
-		true,
-	)
 }
 
 func (h *OAuthHandler) redirectWithError(ctx *gin.Context, errorMsg string) {

@@ -97,11 +97,6 @@ func createTestOAuthHandler(mockSvc *mockUserServiceOAuth) *OAuthHandler {
 				Enabled:    true,
 			},
 		},
-		CookieConfig{
-			Domain:      "localhost",
-			Secure:      false,
-			ExpiryHours: 24,
-		},
 	)
 }
 
@@ -148,7 +143,6 @@ func TestGetProvidersDisabled(t *testing.T) {
 			Facebook:        config.OAuthProviderConfig{Enabled: false},
 			Apple:           config.AppleOAuthConfig{Enabled: false},
 		},
-		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()
@@ -181,7 +175,6 @@ func TestGoogleLoginDisabled(t *testing.T) {
 		config.OAuthConfig{
 			Google: config.OAuthProviderConfig{Enabled: false},
 		},
-		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()
@@ -232,7 +225,6 @@ func TestFacebookLoginDisabled(t *testing.T) {
 		config.OAuthConfig{
 			Facebook: config.OAuthProviderConfig{Enabled: false},
 		},
-		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()
@@ -278,7 +270,6 @@ func TestAppleLoginDisabled(t *testing.T) {
 		config.OAuthConfig{
 			Apple: config.AppleOAuthConfig{Enabled: false},
 		},
-		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()

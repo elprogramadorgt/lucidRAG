@@ -103,13 +103,8 @@ func main() {
 	})
 
 	v1 := r.Group("/api/v1")
-	cookieCfg := authHandler.CookieConfig{
-		Domain:      cfg.Auth.CookieDomain,
-		Secure:      cfg.Auth.CookieSecure,
-		ExpiryHours: cfg.Auth.JWTExpiryHours,
-	}
-	authHandler.Register(v1, authHandler.NewHandler(userSvc, log, cookieCfg), authMw)
-	authHandler.RegisterOAuth(v1, authHandler.NewOAuthHandler(userSvc, log, cfg.Auth.OAuth, cookieCfg))
+	authHandler.Register(v1, authHandler.NewHandler(userSvc, log), authMw)
+	authHandler.RegisterOAuth(v1, authHandler.NewOAuthHandler(userSvc, log, cfg.Auth.OAuth))
 	whatsappHandler.Register(v1, whatsappHdlr)
 	ragHandler.Register(v1.Group("/rag", authMw), ragHandler.NewHandler(documentSvc, log))
 	documentHandler.Register(v1.Group("/documents", authMw), documentHandler.NewHandler(documentSvc, log))
