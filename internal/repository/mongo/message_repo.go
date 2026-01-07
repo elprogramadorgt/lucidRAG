@@ -11,10 +11,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// MessageRepo implements conversation.MessageRepository using MongoDB.
 type MessageRepo struct {
 	collection *mongo.Collection
 }
 
+// NewMessageRepo creates a new MessageRepo with the given database client.
 func NewMessageRepo(client *DbClient) *MessageRepo {
 	return &MessageRepo{
 		collection: client.DB.Collection("messages"),

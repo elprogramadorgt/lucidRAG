@@ -1,3 +1,4 @@
+// Package chunker provides text chunking utilities for RAG indexing.
 package chunker
 
 import (
@@ -5,11 +6,13 @@ import (
 	"unicode"
 )
 
+// Chunker splits text into overlapping chunks for embedding.
 type Chunker struct {
 	ChunkSize    int
 	ChunkOverlap int
 }
 
+// New creates a new Chunker with the given size and overlap.
 func New(chunkSize, chunkOverlap int) *Chunker {
 	if chunkSize <= 0 {
 		chunkSize = 512
@@ -27,6 +30,7 @@ func New(chunkSize, chunkOverlap int) *Chunker {
 	}
 }
 
+// Chunk splits text into overlapping word-based chunks.
 func (c *Chunker) Chunk(text string) []string {
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -86,6 +90,7 @@ func tokenize(text string) []string {
 	return words
 }
 
+// ChunkWithMetadata splits text into chunks with position information.
 func (c *Chunker) ChunkWithMetadata(text string) []ChunkWithPosition {
 	chunks := c.Chunk(text)
 	result := make([]ChunkWithPosition, len(chunks))
@@ -100,6 +105,7 @@ func (c *Chunker) ChunkWithMetadata(text string) []ChunkWithPosition {
 	return result
 }
 
+// ChunkWithPosition represents a text chunk with its index position.
 type ChunkWithPosition struct {
 	Content string
 	Index   int

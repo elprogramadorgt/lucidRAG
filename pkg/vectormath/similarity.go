@@ -1,3 +1,4 @@
+// Package vectormath provides vector operations for similarity search.
 package vectormath
 
 import (
@@ -5,6 +6,7 @@ import (
 	"sort"
 )
 
+// CosineSimilarity computes the cosine similarity between two vectors.
 func CosineSimilarity(a, b []float64) float64 {
 	if len(a) != len(b) || len(a) == 0 {
 		return 0
@@ -24,6 +26,7 @@ func CosineSimilarity(a, b []float64) float64 {
 	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
 }
 
+// EuclideanDistance computes the Euclidean distance between two vectors.
 func EuclideanDistance(a, b []float64) float64 {
 	if len(a) != len(b) || len(a) == 0 {
 		return math.MaxFloat64
@@ -38,11 +41,13 @@ func EuclideanDistance(a, b []float64) float64 {
 	return math.Sqrt(sum)
 }
 
+// ScoredItem represents a vector with its similarity score.
 type ScoredItem struct {
 	Index int
 	Score float64
 }
 
+// TopKBySimilarity returns the top-k most similar vectors above a threshold.
 func TopKBySimilarity(query []float64, vectors [][]float64, k int, threshold float64) []ScoredItem {
 	if k <= 0 || len(vectors) == 0 {
 		return nil
@@ -70,6 +75,7 @@ func TopKBySimilarity(query []float64, vectors [][]float64, k int, threshold flo
 	return scores
 }
 
+// NormalizeVector returns a unit vector in the same direction.
 func NormalizeVector(v []float64) []float64 {
 	if len(v) == 0 {
 		return v

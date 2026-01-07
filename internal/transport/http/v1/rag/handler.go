@@ -4,18 +4,20 @@ import (
 	"errors"
 	"net/http"
 
-	docApp "github.com/elprogramadorgt/lucidRAG/internal/application/document"
-	documentDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/document"
+	ragApp "github.com/elprogramadorgt/lucidRAG/internal/application/rag"
+	ragDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/rag"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
 
+// Handler handles RAG query endpoints.
 type Handler struct {
-	svc documentDomain.Service
+	svc ragDomain.Service
 	log *logger.Logger
 }
 
-func NewHandler(svc documentDomain.Service, log *logger.Logger) *Handler {
+// NewHandler creates a new RAG handler.
+func NewHandler(svc ragDomain.Service, log *logger.Logger) *Handler {
 	return &Handler{
 		svc: svc,
 		log: log.With("handler", "rag"),
@@ -28,6 +30,7 @@ type queryRequest struct {
 	Threshold float64 `json:"threshold"`
 }
 
+// Query handles RAG query requests.
 func (h *Handler) Query(ctx *gin.Context) {
 	var req queryRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -35,15 +38,15 @@ func (h *Handler) Query(ctx *gin.Context) {
 		return
 	}
 
-	query := documentDomain.RAGQuery{
+	query := ragDomain.Query{
 		Query:     req.Query,
 		TopK:      req.TopK,
 		Threshold: req.Threshold,
 	}
 
-	response, err := h.svc.QueryRAG(ctx.Request.Context(), query)
+	response, err := h.svc.Query(ctx.Request.Context(), query)
 	if err != nil {
-		if errors.Is(err, docApp.ErrInvalidQuery) {
+		if errors.Is(err, ragApp.ErrInvalidQuery) {
 			ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid query"})
 			return
 		}

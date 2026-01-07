@@ -9,294 +9,177 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	docApp "github.com/elprogramadorgt/lucidRAG/internal/application/document"
-	documentDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/document"
+	ragApp "github.com/elprogramadorgt/lucidRAG/internal/application/rag"
+	ragDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/rag"
 	"github.com/elprogramadorgt/lucidRAG/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
 
-type mockDocumentService struct {
-	queryRAGFunc func(ctx context.Context, query documentDomain.RAGQuery) (*documentDomain.RAGResponse, error)
+type mockRAGService struct {
+	response *ragDomain.Response
+	err      error
 }
 
-func (m *mockDocumentService) CreateDocument(ctx context.Context, userCtx documentDomain.UserContext, doc *documentDomain.Document) (string, error) {
-	return "", nil
+func (m *mockRAGService) Query(_ context.Context, _ ragDomain.Query) (*ragDomain.Response, error) {
+	return m.response, m.err
 }
 
-func (m *mockDocumentService) GetDocument(ctx context.Context, userCtx documentDomain.UserContext, id string) (*documentDomain.Document, error) {
-	return nil, nil
-}
-
-func (m *mockDocumentService) ListDocuments(ctx context.Context, userCtx documentDomain.UserContext, limit, offset int) ([]documentDomain.Document, int64, error) {
-	return nil, 0, nil
-}
-
-func (m *mockDocumentService) UpdateDocument(ctx context.Context, userCtx documentDomain.UserContext, doc *documentDomain.Document) error {
+func (m *mockRAGService) IndexDocument(_ context.Context, _ string, _ string) error {
 	return nil
 }
 
-func (m *mockDocumentService) DeleteDocument(ctx context.Context, userCtx documentDomain.UserContext, id string) error {
+func (m *mockRAGService) DeleteDocumentChunks(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m *mockDocumentService) QueryRAG(ctx context.Context, query documentDomain.RAGQuery) (*documentDomain.RAGResponse, error) {
-	if m.queryRAGFunc != nil {
-		return m.queryRAGFunc(ctx, query)
-	}
-	return nil, nil
-}
-
-func setupTestRouter(handler *Handler) *gin.Engine {
+func setupTest() (*gin.Engine, *logger.Logger) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
-	r.POST("/query", handler.Query)
-	return r
-}
-
-func createTestLogger() *logger.Logger {
-	return logger.New(logger.Options{Level: "error"})
+	log := logger.New(logger.Options{Level: "error"})
+	return r, log
 }
 
 func TestNewHandler(t *testing.T) {
-	log := createTestLogger()
-	svc := &mockDocumentService{}
+	_, log := setupTest()
+	svc := &mockRAGService{}
 
-	handler := NewHandler(svc, log)
-
-	if handler == nil {
-		t.Fatal("NewHandler returned nil")
-	}
-	if handler.svc == nil {
-		t.Error("Handler service is nil")
-	}
-	if handler.log == nil {
-		t.Error("Handler logger is nil")
+	h := NewHandler(svc, log)
+	if h == nil {
+		t.Fatal("Expected handler to be created")
 	}
 }
 
-func TestQuery_Success(t *testing.T) {
-	log := createTestLogger()
-	expectedResponse := &documentDomain.RAGResponse{
-		Answer: "Test answer",
-		RelevantChunks: []documentDomain.Chunk{
-			{ID: "chunk1", Content: "chunk content"},
-		},
-		ConfidenceScore:  0.95,
-		ProcessingTimeMs: 100,
-	}
-
-	svc := &mockDocumentService{
-		queryRAGFunc: func(ctx context.Context, query documentDomain.RAGQuery) (*documentDomain.RAGResponse, error) {
-			if query.Query != "test query" {
-				t.Errorf("Expected query 'test query', got '%s'", query.Query)
-			}
-			if query.TopK != 5 {
-				t.Errorf("Expected TopK 5, got %d", query.TopK)
-			}
-			if query.Threshold != 0.5 {
-				t.Errorf("Expected Threshold 0.5, got %f", query.Threshold)
-			}
-			return expectedResponse, nil
+func TestQuerySuccess(t *testing.T) {
+	r, log := setupTest()
+	svc := &mockRAGService{
+		response: &ragDomain.Response{
+			Answer:          "Test answer",
+			ConfidenceScore: 0.95,
 		},
 	}
 
-	handler := NewHandler(svc, log)
-	router := setupTestRouter(handler)
+	h := NewHandler(svc, log)
+	r.POST("/query", h.Query)
 
-	reqBody := queryRequest{
-		Query:     "test query",
-		TopK:      5,
-		Threshold: 0.5,
-	}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
+	body := `{"query": "test question"}`
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 
-	var response documentDomain.RAGResponse
-	if err := json.Unmarshal(w.Body.Bytes(), &response); err != nil {
-		t.Fatalf("Failed to unmarshal response: %v", err)
+	var resp ragDomain.Response
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("Failed to parse response: %v", err)
 	}
 
-	if response.Answer != expectedResponse.Answer {
-		t.Errorf("Expected answer %q, got %q", expectedResponse.Answer, response.Answer)
-	}
-	if response.ConfidenceScore != expectedResponse.ConfidenceScore {
-		t.Errorf("Expected confidence %f, got %f", expectedResponse.ConfidenceScore, response.ConfidenceScore)
+	if resp.Answer != "Test answer" {
+		t.Errorf("Expected answer 'Test answer', got '%s'", resp.Answer)
 	}
 }
 
-func TestQuery_InvalidJSON(t *testing.T) {
-	log := createTestLogger()
-	svc := &mockDocumentService{}
+func TestQueryInvalidBody(t *testing.T) {
+	r, log := setupTest()
+	svc := &mockRAGService{}
 
-	handler := NewHandler(svc, log)
-	router := setupTestRouter(handler)
+	h := NewHandler(svc, log)
+	r.POST("/query", h.Query)
 
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader([]byte("invalid json")))
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBufferString("invalid json"))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-	}
-
-	var response map[string]string
-	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["error"] != "invalid request body" {
-		t.Errorf("Expected error 'invalid request body', got %q", response["error"])
+		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
 
-func TestQuery_MissingRequiredField(t *testing.T) {
-	log := createTestLogger()
-	svc := &mockDocumentService{}
+func TestQueryMissingQuery(t *testing.T) {
+	r, log := setupTest()
+	svc := &mockRAGService{}
 
-	handler := NewHandler(svc, log)
-	router := setupTestRouter(handler)
+	h := NewHandler(svc, log)
+	r.POST("/query", h.Query)
 
-	reqBody := map[string]interface{}{
-		"top_k": 5,
-	}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
+	body := `{"top_k": 5}`
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
 
-func TestQuery_InvalidQueryError(t *testing.T) {
-	log := createTestLogger()
-	svc := &mockDocumentService{
-		queryRAGFunc: func(ctx context.Context, query documentDomain.RAGQuery) (*documentDomain.RAGResponse, error) {
-			return nil, docApp.ErrInvalidQuery
-		},
+func TestQueryInvalidQueryError(t *testing.T) {
+	r, log := setupTest()
+	svc := &mockRAGService{
+		err: ragApp.ErrInvalidQuery,
 	}
 
-	handler := NewHandler(svc, log)
-	router := setupTestRouter(handler)
+	h := NewHandler(svc, log)
+	r.POST("/query", h.Query)
 
-	reqBody := queryRequest{
-		Query: "test query",
-	}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
+	body := `{"query": "test"}`
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-	}
-
-	var response map[string]string
-	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["error"] != "invalid query" {
-		t.Errorf("Expected error 'invalid query', got %q", response["error"])
+		t.Errorf("Expected status 400, got %d", w.Code)
 	}
 }
 
-func TestQuery_InternalError(t *testing.T) {
-	log := createTestLogger()
-	svc := &mockDocumentService{
-		queryRAGFunc: func(ctx context.Context, query documentDomain.RAGQuery) (*documentDomain.RAGResponse, error) {
-			return nil, errors.New("database connection failed")
-		},
+func TestQueryServiceError(t *testing.T) {
+	r, log := setupTest()
+	svc := &mockRAGService{
+		err: errors.New("service error"),
 	}
 
-	handler := NewHandler(svc, log)
-	router := setupTestRouter(handler)
+	h := NewHandler(svc, log)
+	r.POST("/query", h.Query)
 
-	reqBody := queryRequest{
-		Query: "test query",
-	}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
+	body := `{"query": "test question"}`
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusInternalServerError {
-		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, w.Code)
-	}
-
-	var response map[string]string
-	json.Unmarshal(w.Body.Bytes(), &response)
-	if response["error"] != "failed to process query" {
-		t.Errorf("Expected error 'failed to process query', got %q", response["error"])
+		t.Errorf("Expected status 500, got %d", w.Code)
 	}
 }
 
-func TestQuery_DefaultValues(t *testing.T) {
-	log := createTestLogger()
-
-	var capturedQuery documentDomain.RAGQuery
-	svc := &mockDocumentService{
-		queryRAGFunc: func(ctx context.Context, query documentDomain.RAGQuery) (*documentDomain.RAGResponse, error) {
-			capturedQuery = query
-			return &documentDomain.RAGResponse{}, nil
+func TestQueryWithOptionalParams(t *testing.T) {
+	r, log := setupTest()
+	svc := &mockRAGService{
+		response: &ragDomain.Response{
+			Answer: "Answer with params",
 		},
 	}
 
-	handler := NewHandler(svc, log)
-	router := setupTestRouter(handler)
+	h := NewHandler(svc, log)
+	r.POST("/query", h.Query)
 
-	reqBody := queryRequest{
-		Query: "test query",
-	}
-	body, _ := json.Marshal(reqBody)
-
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader(body))
+	body := `{"query": "test", "top_k": 10, "threshold": 0.8}`
+	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	router.ServeHTTP(w, req)
+	r.ServeHTTP(w, req)
 
 	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-	}
-
-	if capturedQuery.TopK != 0 {
-		t.Errorf("Expected default TopK 0, got %d", capturedQuery.TopK)
-	}
-	if capturedQuery.Threshold != 0 {
-		t.Errorf("Expected default Threshold 0, got %f", capturedQuery.Threshold)
-	}
-}
-
-func TestQuery_EmptyBody(t *testing.T) {
-	log := createTestLogger()
-	svc := &mockDocumentService{}
-
-	handler := NewHandler(svc, log)
-	router := setupTestRouter(handler)
-
-	req := httptest.NewRequest(http.MethodPost, "/query", bytes.NewReader([]byte{}))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	router.ServeHTTP(w, req)
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 }

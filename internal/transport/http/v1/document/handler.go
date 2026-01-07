@@ -11,11 +11,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Handler handles document-related HTTP requests.
 type Handler struct {
 	svc documentDomain.Service
 	log *logger.Logger
 }
 
+// NewHandler creates a new document handler.
 func NewHandler(svc documentDomain.Service, log *logger.Logger) *Handler {
 	return &Handler{
 		svc: svc,
