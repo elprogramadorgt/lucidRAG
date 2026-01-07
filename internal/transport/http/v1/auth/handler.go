@@ -12,56 +12,51 @@ import (
 
 const cookieName = "lucidrag_token"
 
-// CookieConfig contains settings for authentication cookies.
 type CookieConfig struct {
 	Domain      string
 	Secure      bool
 	ExpiryHours int
 }
 
-// SetAuthCookie sets the authentication cookie with the given token.
-func (c CookieConfig) SetAuthCookie(ctx *gin.Context, token string) {
-	maxAge := c.ExpiryHours * 3600
-	ctx.SetSameSite(http.SameSiteLaxMode)
-	ctx.SetCookie(
-		cookieName,
-		token,
-		maxAge,
-		"/",
-		c.Domain,
-		c.Secure,
-		true, // HttpOnly
-	)
-}
-
-// ClearAuthCookie clears the authentication cookie.
-func (c CookieConfig) ClearAuthCookie(ctx *gin.Context) {
-	ctx.SetSameSite(http.SameSiteLaxMode)
-	ctx.SetCookie(
-		cookieName,
-		"",
-		-1,
-		"/",
-		c.Domain,
-		c.Secure,
-		true,
-	)
-}
-
-// Handler handles authentication HTTP requests.
 type Handler struct {
 	svc          userDomain.Service
 	log          *logger.Logger
 	cookieConfig CookieConfig
 }
 
-// NewHandler creates a new authentication handler.
 func NewHandler(svc userDomain.Service, log *logger.Logger, cookieCfg CookieConfig) *Handler {
 	return &Handler{
 		svc:          svc,
 		log:          log.With("handler", "auth"),
 		cookieConfig: cookieCfg,
 	}
+}
+
+func (h *Handler) setAuthCookie(ctx *gin.Context, token string) {
+	maxAge := h.cookieConfig.ExpiryHours * 3600
+	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetCookie(
+		cookieName,
+		token,
+		maxAge,
+		"/",
+		h.cookieConfig.Domain,
+		h.cookieConfig.Secure,
+		true, // HttpOnly
+	)
+}
+
+func (h *Handler) clearAuthCookie(ctx *gin.Context) {
+	ctx.SetSameSite(http.SameSiteLaxMode)
+	ctx.SetCookie(
+		cookieName,
+		"",
+		-1,
+		"/",
+		h.cookieConfig.Domain,
+		h.cookieConfig.Secure,
+		true,
+	)
 }
 
 type registerRequest struct {
@@ -112,7 +107,7 @@ func (h *Handler) Register(ctx *gin.Context) {
 		return
 	}
 
-	h.cookieConfig.SetAuthCookie(ctx, token)
+	h.setAuthCookie(ctx, token)
 	h.log.Info("registration_attempt", "status", "success", "user_id", user.ID, "email", user.Email, "ip", ctx.ClientIP())
 	ctx.JSON(http.StatusCreated, authResponse{User: user})
 }
@@ -137,13 +132,13 @@ func (h *Handler) Login(ctx *gin.Context) {
 		return
 	}
 
-	h.cookieConfig.SetAuthCookie(ctx, token)
+	h.setAuthCookie(ctx, token)
 	h.log.Info("login_attempt", "status", "success", "email", req.Email, "ip", ctx.ClientIP())
 	ctx.JSON(http.StatusOK, authResponse{User: user})
 }
 
 func (h *Handler) Logout(ctx *gin.Context) {
-	h.cookieConfig.ClearAuthCookie(ctx)
+	h.clearAuthCookie(ctx)
 	h.log.Info("logout", "ip", ctx.ClientIP())
 	ctx.JSON(http.StatusOK, gin.H{"message": "logged out"})
 }

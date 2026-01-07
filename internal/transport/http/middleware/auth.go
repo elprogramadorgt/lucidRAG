@@ -10,7 +10,6 @@ import (
 
 const cookieName = "lucidrag_token"
 
-// AuthMiddleware validates JWT tokens from cookies or Authorization header.
 func AuthMiddleware(userSvc userDomain.Service) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var token string
@@ -49,7 +48,6 @@ func AuthMiddleware(userSvc userDomain.Service) gin.HandlerFunc {
 	}
 }
 
-// RequireRole restricts access to users with one of the specified roles.
 func RequireRole(roles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole := c.GetString("user_role")

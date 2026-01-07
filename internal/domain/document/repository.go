@@ -1,12 +1,7 @@
 package document
 
-import (
-	"context"
+import "context"
 
-	"github.com/elprogramadorgt/lucidRAG/internal/domain/rag"
-)
-
-// Repository defines CRUD operations for documents.
 type Repository interface {
 	Create(ctx context.Context, doc *Document) (string, error)
 	GetByID(ctx context.Context, id string) (*Document, error)
@@ -18,5 +13,9 @@ type Repository interface {
 	CountByUser(ctx context.Context, userID string) (int64, error)
 }
 
-// ChunkRepository is an alias to rag.ChunkRepository for backwards compatibility.
-type ChunkRepository = rag.ChunkRepository
+type ChunkRepository interface {
+	CreateBatch(ctx context.Context, chunks []Chunk) error
+	GetByDocumentID(ctx context.Context, documentID string) ([]Chunk, error)
+	DeleteByDocumentID(ctx context.Context, documentID string) error
+	Search(ctx context.Context, embedding []float64, topK int, threshold float64) ([]Chunk, error)
+}

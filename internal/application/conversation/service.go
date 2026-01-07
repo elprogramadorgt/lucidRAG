@@ -3,18 +3,14 @@ package conversation
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	conversationDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/conversation"
 )
 
-// Sentinel errors for conversation operations.
 var (
-	// ErrConversationNotFound is returned when a conversation cannot be found.
 	ErrConversationNotFound = errors.New("conversation not found")
-	// ErrForbidden is returned when access to a conversation is denied.
-	ErrForbidden = errors.New("access denied")
+	ErrForbidden            = errors.New("access denied")
 )
 
 type service struct {
@@ -22,13 +18,11 @@ type service struct {
 	msgRepo  conversationDomain.MessageRepository
 }
 
-// ServiceConfig contains dependencies for creating a conversation service.
 type ServiceConfig struct {
 	ConvRepo conversationDomain.ConversationRepository
 	MsgRepo  conversationDomain.MessageRepository
 }
 
-// NewService creates a new conversation service with the given configuration.
 func NewService(cfg ServiceConfig) conversationDomain.Service {
 	return &service{
 		convRepo: cfg.ConvRepo,
@@ -39,7 +33,7 @@ func NewService(cfg ServiceConfig) conversationDomain.Service {
 func (s *service) GetOrCreateConversation(ctx context.Context, userID, phoneNumber, contactName string) (*conversationDomain.Conversation, error) {
 	conv, err := s.convRepo.GetByPhoneNumber(ctx, phoneNumber)
 	if err != nil {
-		return nil, fmt.Errorf("get conversation by phone: %w", err)
+		return nil, err
 	}
 
 	if conv != nil {
@@ -55,7 +49,7 @@ func (s *service) GetOrCreateConversation(ctx context.Context, userID, phoneNumb
 
 	id, err := s.convRepo.Create(ctx, newConv)
 	if err != nil {
-		return nil, fmt.Errorf("create conversation: %w", err)
+		return nil, err
 	}
 	newConv.ID = id
 
@@ -80,19 +74,19 @@ func (s *service) ListConversations(ctx context.Context, userCtx conversationDom
 	if userCtx.IsAdmin {
 		convs, err = s.convRepo.List(ctx, limit, offset)
 		if err != nil {
-			return nil, 0, fmt.Errorf("list conversations: %w", err)
+			return nil, 0, err
 		}
 		total, err = s.convRepo.Count(ctx)
 	} else {
 		convs, err = s.convRepo.ListByUser(ctx, userCtx.UserID, limit, offset)
 		if err != nil {
-			return nil, 0, fmt.Errorf("list user conversations: %w", err)
+			return nil, 0, err
 		}
 		total, err = s.convRepo.CountByUser(ctx, userCtx.UserID)
 	}
 
 	if err != nil {
-		return nil, 0, fmt.Errorf("count conversations: %w", err)
+		return nil, 0, err
 	}
 
 	return convs, total, nil
@@ -101,7 +95,7 @@ func (s *service) ListConversations(ctx context.Context, userCtx conversationDom
 func (s *service) GetConversation(ctx context.Context, userCtx conversationDomain.UserContext, id string) (*conversationDomain.Conversation, error) {
 	conv, err := s.convRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("get conversation: %w", err)
+		return nil, err
 	}
 	if conv == nil {
 		return nil, ErrConversationNotFound
@@ -118,7 +112,7 @@ func (s *service) SaveIncomingMessage(ctx context.Context, phoneNumber, contactN
 	// For incoming WhatsApp messages, use empty userID (system-created conversations)
 	conv, err := s.GetOrCreateConversation(ctx, "", phoneNumber, contactName)
 	if err != nil {
-		return nil, fmt.Errorf("get or create conversation: %w", err)
+		return nil, err
 	}
 
 	msg := &conversationDomain.Message{
@@ -132,7 +126,7 @@ func (s *service) SaveIncomingMessage(ctx context.Context, phoneNumber, contactN
 
 	id, err := s.msgRepo.Create(ctx, msg)
 	if err != nil {
-		return nil, fmt.Errorf("create incoming message: %w", err)
+		return nil, err
 	}
 	msg.ID = id
 
@@ -154,7 +148,7 @@ func (s *service) SaveOutgoingMessage(ctx context.Context, conversationID, conte
 
 	id, err := s.msgRepo.Create(ctx, msg)
 	if err != nil {
-		return nil, fmt.Errorf("create outgoing message: %w", err)
+		return nil, err
 	}
 	msg.ID = id
 
@@ -167,7 +161,7 @@ func (s *service) SaveOutgoingMessage(ctx context.Context, conversationID, conte
 func (s *service) GetMessages(ctx context.Context, userCtx conversationDomain.UserContext, conversationID string, limit, offset int) ([]conversationDomain.Message, int64, error) {
 	conv, err := s.convRepo.GetByID(ctx, conversationID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("get conversation: %w", err)
+		return nil, 0, err
 	}
 	if conv == nil {
 		return nil, 0, ErrConversationNotFound
@@ -189,12 +183,12 @@ func (s *service) GetMessages(ctx context.Context, userCtx conversationDomain.Us
 
 	msgs, err := s.msgRepo.GetByConversationID(ctx, conversationID, limit, offset)
 	if err != nil {
-		return nil, 0, fmt.Errorf("get messages: %w", err)
+		return nil, 0, err
 	}
 
 	total, err := s.msgRepo.CountByConversation(ctx, conversationID)
 	if err != nil {
-		return nil, 0, fmt.Errorf("count messages: %w", err)
+		return nil, 0, err
 	}
 
 	return msgs, total, nil

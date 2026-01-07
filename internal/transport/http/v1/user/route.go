@@ -4,7 +4,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Register registers user routes on the router group.
 func Register(rg *gin.RouterGroup, handler *Handler) {
 	user := rg.Group("/user")
 	{

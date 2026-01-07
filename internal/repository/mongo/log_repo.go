@@ -11,25 +11,20 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// LogRepo handles persistence of system log entries.
 type LogRepo struct {
 	col *mongo.Collection
 }
 
-// NewLogRepo creates a new LogRepo. Call EnsureIndexes during startup to create indexes.
 func NewLogRepo(client *DbClient) *LogRepo {
-	return &LogRepo{col: client.DB.Collection("logs")}
-}
-
-// EnsureIndexes creates database indexes for efficient log queries.
-// Call this once during application startup.
-func (r *LogRepo) EnsureIndexes(ctx context.Context) error {
-	_, err := r.col.Indexes().CreateMany(ctx, []mongo.IndexModel{
+	col := client.DB.Collection("logs")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	_, _ = col.Indexes().CreateMany(ctx, []mongo.IndexModel{
 		{Keys: bson.D{{Key: "timestamp", Value: -1}}},
 		{Keys: bson.D{{Key: "level", Value: 1}}},
 		{Keys: bson.D{{Key: "request_id", Value: 1}}},
 	})
-	return err
+	return &LogRepo{col: col}
 }
 
 func (r *LogRepo) Insert(ctx context.Context, entry *system.LogEntry) error {

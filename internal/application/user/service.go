@@ -3,7 +3,6 @@ package user
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	userDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/user"
@@ -11,16 +10,11 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Sentinel errors for user operations.
 var (
-	// ErrEmailExists is returned when registering with an email already in use.
-	ErrEmailExists = errors.New("email already exists")
-	// ErrInvalidCredentials is returned when login credentials are incorrect.
+	ErrEmailExists        = errors.New("email already exists")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	// ErrInvalidToken is returned when a JWT token is malformed or expired.
-	ErrInvalidToken = errors.New("invalid token")
-	// ErrUserNotFound is returned when a user cannot be found.
-	ErrUserNotFound = errors.New("user not found")
+	ErrInvalidToken       = errors.New("invalid token")
+	ErrUserNotFound       = errors.New("user not found")
 )
 
 type jwtClaims struct {
@@ -36,14 +30,12 @@ type service struct {
 	jwtExpiry time.Duration
 }
 
-// ServiceConfig contains dependencies for creating a user service.
 type ServiceConfig struct {
 	Repo      userDomain.Repository
 	JWTSecret string
 	JWTExpiry time.Duration
 }
 
-// NewService creates a new user service with the given configuration.
 func NewService(cfg ServiceConfig) userDomain.Service {
 	expiry := cfg.JWTExpiry
 	if expiry == 0 {
@@ -65,7 +57,7 @@ func (s *service) Register(ctx context.Context, newUser userDomain.User) (*userD
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(newUser.PasswordHash), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, fmt.Errorf("hash password: %w", err)
+		return nil, err
 	}
 
 	user := &userDomain.User{
@@ -81,7 +73,7 @@ func (s *service) Register(ctx context.Context, newUser userDomain.User) (*userD
 
 	id, err := s.repo.Create(ctx, user)
 	if err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
+		return nil, err
 	}
 	user.ID = id
 
@@ -116,7 +108,7 @@ func (s *service) Login(ctx context.Context, email, password string) (string, *u
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString(s.jwtSecret)
 	if err != nil {
-		return "", nil, fmt.Errorf("sign token: %w", err)
+		return "", nil, err
 	}
 	return tokenStr, user, nil
 }
@@ -124,7 +116,7 @@ func (s *service) Login(ctx context.Context, email, password string) (string, *u
 func (s *service) GetUser(ctx context.Context, id string) (*userDomain.User, error) {
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
+		return nil, err
 	}
 	if user == nil {
 		return nil, ErrUserNotFound
@@ -158,7 +150,7 @@ func (s *service) ValidateToken(tokenString string) (*userDomain.Claims, error) 
 func (s *service) GetUserByEmail(ctx context.Context, email string) (*userDomain.User, error) {
 	user, err := s.repo.GetByEmail(ctx, email)
 	if err != nil {
-		return nil, fmt.Errorf("get user by email: %w", err)
+		return nil, err
 	}
 	if user == nil {
 		return nil, ErrUserNotFound
@@ -189,7 +181,7 @@ func (s *service) RegisterOAuth(ctx context.Context, newUser userDomain.User, pr
 
 	id, err := s.repo.Create(ctx, user)
 	if err != nil {
-		return nil, fmt.Errorf("create oauth user: %w", err)
+		return nil, err
 	}
 	user.ID = id
 

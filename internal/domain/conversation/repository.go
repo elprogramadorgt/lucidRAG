@@ -2,7 +2,6 @@ package conversation
 
 import "context"
 
-// ConversationRepository defines the data access interface for conversations.
 type ConversationRepository interface {
 	Create(ctx context.Context, conv *Conversation) (string, error)
 	GetByID(ctx context.Context, id string) (*Conversation, error)
@@ -15,7 +14,6 @@ type ConversationRepository interface {
 	CountByUser(ctx context.Context, userID string) (int64, error)
 }
 
-// MessageRepository defines the data access interface for messages.
 type MessageRepository interface {
 	Create(ctx context.Context, msg *Message) (string, error)
 	GetByID(ctx context.Context, id string) (*Message, error)
