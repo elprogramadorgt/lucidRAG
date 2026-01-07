@@ -34,16 +34,35 @@ export class LanguageService {
 
     // Get stored language or detect from browser
     const storedLang = localStorage.getItem(this.LANGUAGE_KEY);
-    const browserLang = this.translate.getBrowserLang();
 
-    let langCode = storedLang || browserLang || 'en';
-
-    // Ensure the language is supported
-    if (!this.languages.find(l => l.code === langCode)) {
-      langCode = 'en';
+    let langCode: string;
+    if (storedLang && this.languages.find(l => l.code === storedLang)) {
+      // Use stored language if valid
+      langCode = storedLang;
+    } else {
+      // Detect from browser
+      langCode = this.detectBrowserLanguage();
     }
 
     this.setLanguage(langCode);
+  }
+
+  private detectBrowserLanguage(): string {
+    // Get browser languages in order of preference
+    const browserLanguages = navigator.languages || [navigator.language];
+
+    for (const lang of browserLanguages) {
+      // Extract primary language code (e.g., 'en' from 'en-US')
+      const primaryCode = lang.split('-')[0].toLowerCase();
+
+      // Check if we support this language
+      if (this.languages.find(l => l.code === primaryCode)) {
+        return primaryCode;
+      }
+    }
+
+    // Default to English
+    return 'en';
   }
 
   setLanguage(code: string): void {

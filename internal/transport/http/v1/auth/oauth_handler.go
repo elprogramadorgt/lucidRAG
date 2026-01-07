@@ -2,10 +2,12 @@ package auth
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/elprogramadorgt/lucidRAG/internal/config"
@@ -16,19 +18,19 @@ import (
 
 // OAuthHandler handles OAuth authentication flows.
 type OAuthHandler struct {
-	userSvc      userDomain.Service
-	log          *logger.Logger
-	oauthConfig  config.OAuthConfig
-	cookieConfig CookieConfig
+	userSvc     userDomain.Service
+	log         *logger.Logger
+	oauthConfig config.OAuthConfig
+	signingKey  []byte
 }
 
 // NewOAuthHandler creates a new OAuthHandler.
 func NewOAuthHandler(userSvc userDomain.Service, log *logger.Logger, oauthCfg config.OAuthConfig, cookieCfg CookieConfig) *OAuthHandler {
 	return &OAuthHandler{
-		userSvc:      userSvc,
-		log:          log.With("handler", "oauth"),
-		oauthConfig:  oauthCfg,
-		cookieConfig: cookieCfg,
+		userSvc:     userSvc,
+		log:         log.With("handler", "oauth"),
+		oauthConfig: oauthCfg,
+		signingKey:  []byte(jwtSecret),
 	}
 }
 
@@ -63,7 +65,48 @@ func generateState() (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	return base64.URLEncoding.EncodeToString(b), nil
+
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	nonceB64 := base64.RawURLEncoding.EncodeToString(nonce)
+	payload := nonceB64 + "." + timestamp
+
+	mac := hmac.New(sha256.New, h.signingKey)
+	mac.Write([]byte(payload))
+	signature := hex.EncodeToString(mac.Sum(nil))
+
+	return payload + "." + signature, nil
+}
+
+// verifySignedState validates the state token and checks expiry
+func (h *OAuthHandler) verifySignedState(state string) bool {
+	parts := strings.Split(state, ".")
+	if len(parts) != 3 {
+		return false
+	}
+
+	payload := parts[0] + "." + parts[1]
+	providedSig := parts[2]
+
+	// Verify signature
+	mac := hmac.New(sha256.New, h.signingKey)
+	mac.Write([]byte(payload))
+	expectedSig := hex.EncodeToString(mac.Sum(nil))
+
+	if !hmac.Equal([]byte(providedSig), []byte(expectedSig)) {
+		return false
+	}
+
+	// Check timestamp expiry
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return false
+	}
+
+	if time.Since(time.Unix(timestamp, 0)) > stateExpiry {
+		return false
+	}
+
+	return true
 }
 
 // handleOAuthUser processes the authenticated OAuth user.

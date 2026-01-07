@@ -152,26 +152,22 @@ func TestLoadOAuthDefaults(t *testing.T) {
 	}
 }
 
-func TestLoadCookieConfig(t *testing.T) {
+func TestLoadJWTConfig(t *testing.T) {
 	t.Setenv("DB_PASSWORD", "testpassword")
 	t.Setenv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", "testtoken")
-	t.Setenv("COOKIE_DOMAIN", "example.com")
-	t.Setenv("COOKIE_SECURE", "true")
 	t.Setenv("JWT_EXPIRY_HOURS", "48")
+	t.Setenv("JWT_SECRET", "test-secret-key-min-32-characters")
 
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Failed to load config: %v", err)
 	}
 
-	if cfg.Auth.CookieDomain != "example.com" {
-		t.Errorf("Expected cookie domain example.com, got %s", cfg.Auth.CookieDomain)
-	}
-	if !cfg.Auth.CookieSecure {
-		t.Error("Expected cookie secure to be true")
-	}
 	if cfg.Auth.JWTExpiryHours != 48 {
 		t.Errorf("Expected JWT expiry hours 48, got %d", cfg.Auth.JWTExpiryHours)
+	}
+	if cfg.Auth.JWTSecret != "test-secret-key-min-32-characters" {
+		t.Errorf("Expected JWT secret to be set, got %s", cfg.Auth.JWTSecret)
 	}
 }
 

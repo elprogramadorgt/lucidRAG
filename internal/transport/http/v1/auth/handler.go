@@ -77,7 +77,8 @@ type loginRequest struct {
 }
 
 type authResponse struct {
-	User *userDomain.User `json:"user"`
+	Token string           `json:"token"`
+	User  *userDomain.User `json:"user"`
 }
 
 func (h *Handler) Register(ctx *gin.Context) {
@@ -114,7 +115,7 @@ func (h *Handler) Register(ctx *gin.Context) {
 
 	h.cookieConfig.SetAuthCookie(ctx, token)
 	h.log.Info("registration_attempt", "status", "success", "user_id", user.ID, "email", user.Email, "ip", ctx.ClientIP())
-	ctx.JSON(http.StatusCreated, authResponse{User: user})
+	ctx.JSON(http.StatusCreated, authResponse{Token: token, User: user})
 }
 
 func (h *Handler) Login(ctx *gin.Context) {
@@ -139,7 +140,7 @@ func (h *Handler) Login(ctx *gin.Context) {
 
 	h.cookieConfig.SetAuthCookie(ctx, token)
 	h.log.Info("login_attempt", "status", "success", "email", req.Email, "ip", ctx.ClientIP())
-	ctx.JSON(http.StatusOK, authResponse{User: user})
+	ctx.JSON(http.StatusOK, authResponse{Token: token, User: user})
 }
 
 func (h *Handler) Logout(ctx *gin.Context) {
