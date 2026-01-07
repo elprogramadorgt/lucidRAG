@@ -19,6 +19,8 @@ type Config struct {
 type AuthConfig struct {
 	JWTSecret      string
 	JWTExpiryHours int
+	CookieDomain   string
+	CookieSecure   bool
 	OAuth          OAuthConfig
 }
 
@@ -122,6 +124,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid JWT_EXPIRY_HOURS: %w", err)
 	}
 
+	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
+
 	config := &Config{
 		Server: ServerConfig{
 			Port:        port,
@@ -153,6 +157,8 @@ func Load() (*Config, error) {
 		Auth: AuthConfig{
 			JWTSecret:      getEnv("JWT_SECRET", ""),
 			JWTExpiryHours: jwtExpiry,
+			CookieDomain:   getEnv("COOKIE_DOMAIN", ""),
+			CookieSecure:   cookieSecure,
 			OAuth: OAuthConfig{
 				RedirectBaseURL: getEnv("OAUTH_REDIRECT_BASE_URL", "http://localhost:4200"),
 				Google: OAuthProviderConfig{

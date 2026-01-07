@@ -52,7 +52,7 @@ func setupTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-func TestAuthMiddlewareWithValidToken(t *testing.T) {
+func TestAuthMiddlewareWithValidCookie(t *testing.T) {
 	mockSvc := &mockUserService{
 		validateTokenFunc: func(token string) (*userDomain.Claims, error) {
 			if token == "valid-token" {
@@ -80,7 +80,7 @@ func TestAuthMiddlewareWithValidToken(t *testing.T) {
 	})
 
 	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("Authorization", "Bearer valid-token")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: "valid-token"})
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
@@ -183,7 +183,7 @@ func TestAuthMiddlewareInvalidToken(t *testing.T) {
 	})
 
 	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("Authorization", "Bearer invalid-token")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: "invalid-token"})
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
@@ -193,24 +193,45 @@ func TestAuthMiddlewareInvalidToken(t *testing.T) {
 	}
 }
 
-func TestAuthMiddlewareInvalidAuthFormat(t *testing.T) {
-	mockSvc := &mockUserService{}
+func TestAuthMiddlewareCookiePriorityOverBearer(t *testing.T) {
+	mockSvc := &mockUserService{
+		validateTokenFunc: func(token string) (*userDomain.Claims, error) {
+			if token == "cookie-token" {
+				return &userDomain.Claims{
+					UserID: "cookie-user",
+					Email:  "cookie@example.com",
+					Role:   "user",
+				}, nil
+			}
+			if token == "bearer-token" {
+				return &userDomain.Claims{
+					UserID: "bearer-user",
+					Email:  "bearer@example.com",
+					Role:   "admin",
+				}, nil
+			}
+			return nil, errors.New("invalid token")
+		},
+	}
 
 	router := setupTestRouter()
 	router.Use(AuthMiddleware(mockSvc))
 	router.GET("/protected", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		userID := c.GetString("user_id")
+		c.JSON(http.StatusOK, gin.H{"user_id": userID})
 	})
 
 	req, _ := http.NewRequest("GET", "/protected", nil)
-	req.Header.Set("Authorization", "InvalidFormat token")
+	req.AddCookie(&http.Cookie{Name: cookieName, Value: "cookie-token"})
+	req.Header.Set("Authorization", "Bearer bearer-token")
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
 
-	if resp.Code != http.StatusUnauthorized {
-		t.Errorf("Expected status 401, got %d", resp.Code)
+	if resp.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", resp.Code)
 	}
+	// Cookie should take priority - user_id should be from cookie token
 }
 
 func TestRequireRoleAllowed(t *testing.T) {

@@ -9,68 +9,7 @@ This document describes the REST API endpoints available in lucidRAG.
 
 ## Authentication
 
-The API uses Bearer token authentication (JWT). Protected endpoints require an `Authorization` header with a valid token.
-
-### Obtaining a Token
-
-**Register a new user:**
-```bash
-curl -X POST http://localhost:8080/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password123",
-    "first_name": "John",
-    "last_name": "Doe"
-  }'
-```
-
-**Response:**
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIs...",
-  "user": {
-    "id": "user_123",
-    "email": "user@example.com",
-    "first_name": "John",
-    "last_name": "Doe",
-    "role": "user"
-  }
-}
-```
-
-**Login with existing credentials:**
-```bash
-curl -X POST http://localhost:8080/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "user@example.com",
-    "password": "password123"
-  }'
-```
-
-### Using the Token
-
-Include the token in the `Authorization` header for all protected endpoints:
-
-```bash
-curl http://localhost:8080/api/v1/documents \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
-```
-
-### Token Expiry
-
-Tokens expire after 24 hours by default (configurable via `JWT_EXPIRY_HOURS`). When a token expires, the user must login again to obtain a new token.
-
-### OAuth Authentication
-
-Social login is available via Google, Facebook, and Apple. Initiate OAuth flow:
-
-- Google: `GET /api/v1/auth/oauth/google`
-- Facebook: `GET /api/v1/auth/oauth/facebook`
-- Apple: `GET /api/v1/auth/oauth/apple`
-
-After successful OAuth, the frontend receives the token via redirect URL query parameter.
+> **Note**: Authentication is not yet implemented. This section will be updated when authentication is added.
 
 ## Endpoints
 
@@ -406,16 +345,7 @@ Common HTTP status codes:
 
 ## Rate Limiting
 
-The API implements rate limiting to prevent abuse:
-
-- **Limit**: 100 requests per minute per IP address
-- **Response**: `429 Too Many Requests` when limit is exceeded
-
-```json
-{
-  "error": "rate limit exceeded"
-}
-```
+> **Note**: Rate limiting is not yet implemented. This section will be updated when rate limiting is added.
 
 ## CORS
 
@@ -432,7 +362,6 @@ The API supports Cross-Origin Resource Sharing (CORS) with the following headers
 ```bash
 curl -X POST http://localhost:8080/api/v1/rag/query \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{
     "query": "What are your store hours?",
     "top_k": 5,
@@ -444,7 +373,6 @@ curl -X POST http://localhost:8080/api/v1/rag/query \
 ```bash
 curl -X POST http://localhost:8080/api/v1/documents \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_TOKEN" \
   -d '{
     "title": "Store Hours",
     "content": "We are open Monday-Friday 9AM-6PM",
@@ -455,21 +383,17 @@ curl -X POST http://localhost:8080/api/v1/documents \
 
 **List Documents:**
 ```bash
-curl -H "Authorization: Bearer YOUR_TOKEN" \
-  "http://localhost:8080/api/v1/documents?limit=10&offset=0"
+curl http://localhost:8080/api/v1/documents?limit=10&offset=0
 ```
 
 ### Using JavaScript/TypeScript
 
 ```typescript
-const token = 'YOUR_JWT_TOKEN';
-
 // Query RAG
 const response = await fetch('http://localhost:8080/api/v1/rag/query', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
   },
   body: JSON.stringify({
     query: 'What are your store hours?',
@@ -486,7 +410,6 @@ const createResponse = await fetch('http://localhost:8080/api/v1/documents', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
   },
   body: JSON.stringify({
     title: 'Store Hours',
