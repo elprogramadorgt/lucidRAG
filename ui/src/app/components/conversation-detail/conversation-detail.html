@@ -12,15 +12,15 @@
       <div class="flex items-center gap-3">
         <!-- Avatar with online status -->
         <div class="relative">
-          @if (conversation.contactAvatar) {
+          @if (conversation.contact_avatar) {
           <img
-            [src]="conversation.contactAvatar"
-            [alt]="conversation.contactName"
+            [src]="conversation.contact_avatar"
+            [alt]="conversation.contact_name"
             class="w-10 h-10 rounded-full object-cover"
           />
           } @else {
           <div class="avatar w-10 h-10 text-base">
-            {{ conversation.contactName.charAt(0).toUpperCase() }}
+            {{ conversation.contact_name.charAt(0).toUpperCase() }}
           </div>
           }
           <!-- Online indicator positioned on avatar -->
@@ -34,11 +34,11 @@
 
         <div>
           <h2 class="font-semibold" style="color: var(--color-text-primary)">
-            {{ conversation.contactName }}
+            {{ conversation.contact_name }}
           </h2>
           <div class="flex items-center gap-2">
             <span class="text-sm" style="color: var(--color-text-tertiary)">
-              {{ conversation.contactId }}
+              {{ conversation.contact_id }}
             </span>
             <span class="text-xs" style="color: var(--color-text-tertiary)">
               &#8226;
@@ -57,8 +57,8 @@
         <!-- Bot toggle -->
         <button
           class="btn btn-ghost p-2 rounded-lg"
-          [class.text-green-500]="conversation.botEnabled"
-          [title]="conversation.botEnabled ? 'Bot enabled' : 'Bot disabled'"
+          [class.text-green-500]="conversation.bot_enabled"
+          [title]="conversation.bot_enabled ? 'Bot enabled' : 'Bot disabled'"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -131,7 +131,7 @@
         <span></span>
       </div>
       <span class="text-sm" style="color: var(--color-text-tertiary)">
-        {{ conversation.contactName }} is typing...
+        {{ conversation.contact_name }} is typing...
       </span>
     </div>
   </div>

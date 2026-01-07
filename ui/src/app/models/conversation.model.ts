@@ -4,15 +4,15 @@ export type ConversationStatus = 'active' | 'archived' | 'resolved';
 export interface Conversation {
   id: string;
   platform: Platform;
-  contactName: string;
-  contactId: string;
-  contactAvatar?: string;
-  lastMessage: string;
-  lastMessageTime: string;
-  unreadCount: number;
-  botEnabled: boolean;
-  averageResponseTime: number;
-  totalMessages: number;
+  contact_name: string;
+  contact_id: string;
+  contact_avatar?: string;
+  last_message: string;
+  last_message_time: string;
+  unread_count: number;
+  bot_enabled: boolean;
+  average_response_time: number;
+  total_messages: number;
   status: ConversationStatus;
 }
 
@@ -25,12 +25,12 @@ export interface ConversationsResponse {
 
 export interface Message {
   id: string;
-  conversationId: string;
+  conversation_id: string;
   sender: 'user' | 'bot' | 'agent';
   text: string;
   timestamp: string;
-  responseTime?: number;
-  agentName?: string;
+  response_time?: number;
+  agent_name?: string;
 }
 
 export interface MessagesResponse {
@@ -39,11 +39,11 @@ export interface MessagesResponse {
 
 export interface SendReplyRequest {
   text: string;
-  agentId: string;
+  agent_id: string;
 }
 
 export interface SendReplyResponse {
-  messageId: string;
+  message_id: string;
   sent: boolean;
   timestamp: string;
 }
@@ -53,7 +53,7 @@ export interface ToggleBotRequest {
 }
 
 export interface ToggleBotResponse {
-  conversationId: string;
-  botEnabled: boolean;
+  conversation_id: string;
+  bot_enabled: boolean;
   message: string;
 }

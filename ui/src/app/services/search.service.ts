@@ -30,8 +30,8 @@ export class SearchService {
       // Text search
       if (currentFilters.query) {
         const query = currentFilters.query.toLowerCase();
-        const matchesName = conv.contactName.toLowerCase().includes(query);
-        const matchesMessage = conv.lastMessage?.toLowerCase().includes(query);
+        const matchesName = conv.contact_name.toLowerCase().includes(query);
+        const matchesMessage = conv.last_message?.toLowerCase().includes(query);
         if (!matchesName && !matchesMessage) return false;
       }
 
@@ -42,7 +42,7 @@ export class SearchService {
 
       // Unread filter
       if (currentFilters.hasUnread !== undefined) {
-        const hasUnread = conv.unreadCount > 0;
+        const hasUnread = conv.unread_count > 0;
         if (currentFilters.hasUnread !== hasUnread) return false;
       }
 
@@ -52,11 +52,9 @@ export class SearchService {
 
   constructor() {
     // Debounced search
-    this.searchTerms$
-      .pipe(debounceTime(300), distinctUntilChanged())
-      .subscribe((query) => {
-        this.updateFilters({ query });
-      });
+    this.searchTerms$.pipe(debounceTime(300), distinctUntilChanged()).subscribe((query) => {
+      this.updateFilters({ query });
+    });
   }
 
   search(query: string): void {

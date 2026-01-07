@@ -45,7 +45,7 @@ export class ConversationDetailComponent {
     const conv = this.conversationService.selectedConversation();
     if (!conv) return 'offline';
 
-    const lastMessageTime = new Date(conv.lastMessageTime);
+    const lastMessageTime = new Date(conv.last_message_time);
     const now = new Date();
     const diffMins = (now.getTime() - lastMessageTime.getTime()) / 60000;
 

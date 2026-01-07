@@ -61,14 +61,14 @@
           >
             <!-- Avatar -->
             <div class="avatar">
-              @if (conv.contactAvatar) {
+              @if (conv.contact_avatar) {
                 <img
-                  [src]="conv.contactAvatar"
-                  [alt]="conv.contactName"
+                  [src]="conv.contact_avatar"
+                  [alt]="conv.contact_name"
                 />
               } @else {
                 <div class="avatar-initials">
-                  {{ conv.contactName.charAt(0).toUpperCase() }}
+                  {{ conv.contact_name.charAt(0).toUpperCase() }}
                 </div>
               }
             </div>
@@ -77,16 +77,16 @@
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between mb-1">
                 <h3 class="font-medium truncate text-sm" style="color: var(--color-text-primary)">
-                  {{ conv.contactName }}
+                  {{ conv.contact_name }}
                 </h3>
-                @if (conv.unreadCount > 0) {
+                @if (conv.unread_count > 0) {
                   <span class="badge badge-primary text-xs ml-2">
-                    {{ conv.unreadCount }}
+                    {{ conv.unread_count }}
                   </span>
                 }
               </div>
               <p class="text-xs truncate" style="color: var(--color-text-secondary)">
-                {{ conv.lastMessage }}
+                {{ conv.last_message }}
               </p>
             </div>
           </div>
