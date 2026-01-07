@@ -52,7 +52,7 @@ func (h *Handler) HandleWebhookVerification(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, toHookVerificationDTO(challenge))
+	ctx.String(200, challenge)
 }
 
 func (h *Handler) HandleIncomingMessage(ctx *gin.Context) {

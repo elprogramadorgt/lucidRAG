@@ -8,11 +8,11 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	Server    ServerConfig
-	WhatsApp  WhatsAppConfig
-	RAG       RAGConfig
-	Database  DatabaseConfig
-	Auth      AuthConfig
+	Server   ServerConfig
+	WhatsApp WhatsAppConfig
+	RAG      RAGConfig
+	Database DatabaseConfig
+	Auth     AuthConfig
 }
 
 // AuthConfig holds authentication configuration
@@ -26,10 +26,10 @@ type AuthConfig struct {
 
 // OAuthConfig holds OAuth provider configurations
 type OAuthConfig struct {
-	RedirectBaseURL    string
-	Google             OAuthProviderConfig
-	Facebook           OAuthProviderConfig
-	Apple              AppleOAuthConfig
+	RedirectBaseURL string
+	Google          OAuthProviderConfig
+	Facebook        OAuthProviderConfig
+	Apple           AppleOAuthConfig
 }
 
 // OAuthProviderConfig holds standard OAuth provider settings
@@ -50,18 +50,18 @@ type AppleOAuthConfig struct {
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Port         int
-	Host         string
-	Environment  string
+	Port        int
+	Host        string
+	Environment string
 }
 
 // WhatsAppConfig holds WhatsApp API configuration
 type WhatsAppConfig struct {
-	APIKey      string
-	PhoneNumberID string
-	BusinessAccountID string
+	APIKey             string
+	PhoneNumberID      string
+	BusinessAccountID  string
 	WebhookVerifyToken string
-	APIVersion  string
+	APIVersion         string
 }
 
 // RAGConfig holds RAG-related configuration
@@ -123,7 +123,7 @@ func Load() (*Config, error) {
 			PhoneNumberID:      getEnv("WHATSAPP_PHONE_NUMBER_ID", ""),
 			BusinessAccountID:  getEnv("WHATSAPP_BUSINESS_ACCOUNT_ID", ""),
 			WebhookVerifyToken: getEnv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", ""),
-			APIVersion:         getEnv("WHATSAPP_API_VERSION", "v17.0"),
+			APIVersion:         getEnv("WHATSAPP_API_VERSION", "v22.0"),
 		},
 		RAG: RAGConfig{
 			OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
