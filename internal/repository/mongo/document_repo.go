@@ -11,10 +11,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// DocumentRepo implements document.Repository using MongoDB.
 type DocumentRepo struct {
 	collection *mongo.Collection
 }
 
+// NewDocumentRepo creates a new DocumentRepo with the given database client.
 func NewDocumentRepo(client *DbClient) *DocumentRepo {
 	return &DocumentRepo{
 		collection: client.DB.Collection("documents"),

@@ -12,11 +12,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// DBPinger allows checking database connectivity
+// DBPinger allows checking database connectivity.
 type DBPinger interface {
 	Ping(ctx context.Context) error
 }
 
+// HandlerConfig contains dependencies for creating a system handler.
 type HandlerConfig struct {
 	Repo        system.LogRepository
 	DB          DBPinger
@@ -26,6 +27,7 @@ type HandlerConfig struct {
 	Version     string
 }
 
+// Handler handles system administration HTTP requests.
 type Handler struct {
 	repo        system.LogRepository
 	db          DBPinger
@@ -35,6 +37,7 @@ type Handler struct {
 	version     string
 }
 
+// NewHandler creates a new system handler.
 func NewHandler(cfg HandlerConfig) *Handler {
 	version := cfg.Version
 	if version == "" {
@@ -124,6 +127,7 @@ func (h *Handler) CleanupLogs(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{"deleted": deleted, "days": days})
 }
 
+// ServerInfo contains server status and runtime information.
 type ServerInfo struct {
 	Status      string            `json:"status"`
 	Environment string            `json:"environment"`
@@ -136,12 +140,14 @@ type ServerInfo struct {
 	Endpoints   []EndpointInfo    `json:"endpoints"`
 }
 
+// DatabaseStatus contains database connectivity information.
 type DatabaseStatus struct {
 	Status     string `json:"status"`
 	Latency    string `json:"latency,omitempty"`
 	LatencyMs  int64  `json:"latency_ms,omitempty"`
 }
 
+// RuntimeInfo contains Go runtime statistics.
 type RuntimeInfo struct {
 	GoVersion    string `json:"go_version"`
 	NumCPU       int    `json:"num_cpu"`
@@ -150,6 +156,7 @@ type RuntimeInfo struct {
 	MemSysMB     int64  `json:"mem_sys_mb"`
 }
 
+// EndpointInfo describes an API endpoint.
 type EndpointInfo struct {
 	Path        string `json:"path"`
 	Method      string `json:"method"`

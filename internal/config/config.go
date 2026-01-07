@@ -50,9 +50,17 @@ type AppleOAuthConfig struct {
 
 // ServerConfig holds server-related configuration
 type ServerConfig struct {
-	Port         int
-	Host         string
-	Environment  string
+	Port        int
+	Host        string
+	Environment string
+}
+
+// LogLevel returns the appropriate log level for the environment.
+func (s ServerConfig) LogLevel() string {
+	if s.Environment == "development" {
+		return "debug"
+	}
+	return "info"
 }
 
 // WhatsAppConfig holds WhatsApp API configuration
@@ -81,6 +89,12 @@ type DatabaseConfig struct {
 	Name     string
 	User     string
 	Password string
+}
+
+// MongoURI returns the MongoDB connection URI.
+func (d DatabaseConfig) MongoURI() string {
+	return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin",
+		d.User, d.Password, d.Host, d.Port, d.Name)
 }
 
 // Load reads configuration from environment variables

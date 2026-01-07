@@ -12,31 +12,45 @@ PID_DIR="$PROJECT_DIR/.pids"
 echo "Stopping lucidRAG..."
 
 # Stop Angular frontend
+FRONTEND_STOPPED=false
+
+# Try PID file first
 if [ -f "$PID_DIR/frontend.pid" ]; then
     PID=$(cat "$PID_DIR/frontend.pid")
     if kill -0 "$PID" 2>/dev/null; then
         echo "   Stopping frontend (PID: $PID)..."
-        kill "$PID" 2>/dev/null || true
-        # Also kill any child processes (node)
-        pkill -P "$PID" 2>/dev/null || true
+		PGID=$(ps -o pgid= -p $PID)
+        kill -- "-$PGID" 2>/dev/null || true
+        FRONTEND_STOPPED=true
     fi
     rm -f "$PID_DIR/frontend.pid"
+fi
+
+if [ "$FRONTEND_STOPPED" = true ]; then
     echo "   Frontend stopped"
 else
-    echo "   Frontend not running (no PID file)"
+    echo "   Frontend not running"
 fi
 
 # Stop Go backend
+BACKEND_STOPPED=false
+
+# Try PID file first
 if [ -f "$PID_DIR/backend.pid" ]; then
     PID=$(cat "$PID_DIR/backend.pid")
     if kill -0 "$PID" 2>/dev/null; then
         echo "   Stopping backend (PID: $PID)..."
-        kill "$PID" 2>/dev/null || true
+		PGID=$(ps -o pgid= -p $PID)
+        kill -- "-$PGID" 2>/dev/null || true
+        BACKEND_STOPPED=true
     fi
     rm -f "$PID_DIR/backend.pid"
+fi
+
+if [ "$BACKEND_STOPPED" = true ]; then
     echo "   Backend stopped"
 else
-    echo "   Backend not running (no PID file)"
+    echo "   Backend not running"
 fi
 
 # Stop MongoDB (optional - pass --all flag)
@@ -56,5 +70,32 @@ if [ "$1" = "--clean" ] || [ "$1" = "-c" ]; then
     echo "   Logs cleaned"
 fi
 
+# Verify ports are free
 echo ""
-echo "lucidRAG stopped."
+echo "Verifying ports..."
+sleep 1
+
+PORT_8080_FREE=true
+PORT_4200_FREE=true
+
+if lsof -t -iTCP:8080 -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "   ⚠️  Port 8080 is still in use"
+    PORT_8080_FREE=false
+else
+    echo "   ✓ Port 8080 is free"
+fi
+
+if lsof -t -iTCP:4200 -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "   ⚠️  Port 4200 is still in use"
+    PORT_4200_FREE=false
+else
+    echo "   ✓ Port 4200 is free"
+fi
+
+echo ""
+if [ "$PORT_8080_FREE" = true ] && [ "$PORT_4200_FREE" = true ]; then
+    echo "lucidRAG stopped."
+else
+    echo "lucidRAG stopped with warnings."
+    exit 1
+fi

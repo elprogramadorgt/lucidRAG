@@ -11,10 +11,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+// ConversationRepo implements conversation.ConversationRepository using MongoDB.
 type ConversationRepo struct {
 	collection *mongo.Collection
 }
 
+// NewConversationRepo creates a new ConversationRepo with the given database client.
 func NewConversationRepo(client *DbClient) *ConversationRepo {
 	return &ConversationRepo{
 		collection: client.DB.Collection("conversations"),

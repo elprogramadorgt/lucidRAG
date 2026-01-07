@@ -2,6 +2,7 @@ package auth
 
 import "github.com/gin-gonic/gin"
 
+// Register registers authentication routes on the router group.
 func Register(rg *gin.RouterGroup, handler *Handler, authMiddleware gin.HandlerFunc) {
 	auth := rg.Group("/auth")
 	{
@@ -12,6 +13,7 @@ func Register(rg *gin.RouterGroup, handler *Handler, authMiddleware gin.HandlerF
 	}
 }
 
+// RegisterOAuth registers OAuth authentication routes on the router group.
 func RegisterOAuth(rg *gin.RouterGroup, handler *OAuthHandler) {
 	oauth := rg.Group("/auth/oauth")
 	{
