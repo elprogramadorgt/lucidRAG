@@ -2,13 +2,16 @@ package conversation
 
 import "time"
 
+// MessageDirection indicates whether a message was sent or received.
 type MessageDirection string
 
+// Message direction constants.
 const (
 	DirectionIncoming MessageDirection = "incoming"
 	DirectionOutgoing MessageDirection = "outgoing"
 )
 
+// Conversation represents a chat conversation with a contact.
 type Conversation struct {
 	ID            string    `json:"id" bson:"_id,omitempty"`
 	UserID        string    `json:"user_id" bson:"user_id"`
@@ -20,6 +23,7 @@ type Conversation struct {
 	UpdatedAt     time.Time `json:"updated_at" bson:"updated_at"`
 }
 
+// Message represents a single message within a conversation.
 type Message struct {
 	ID             string           `json:"id" bson:"_id,omitempty"`
 	ConversationID string           `json:"conversation_id" bson:"conversation_id"`

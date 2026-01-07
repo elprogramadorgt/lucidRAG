@@ -6,8 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Handler handles user-related HTTP requests.
 type Handler struct{ svc userApp.Service }
 
+// NewHandler creates a new user handler.
 func NewHandler(svc userApp.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) HandleRegister(ctx *gin.Context) {
