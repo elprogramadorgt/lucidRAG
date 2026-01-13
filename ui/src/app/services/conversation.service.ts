@@ -56,9 +56,10 @@ export class ConversationService {
     const params = new HttpParams().set('limit', limit.toString());
 
     return this.http
-      .get<MessagesResponse>(`${environment.apiUrl}/v1/conversations/${conversationId}/messages`, {
-        params,
-      })
+      .get<MessagesResponse>(
+        `${environment.apiUrl}/v1/conversations/${conversationId}/messages`,
+        {}
+      )
       .pipe(
         tap((response) => {
           this.messages.set(response.messages);
@@ -78,7 +79,8 @@ export class ConversationService {
             id: response.message_id,
             conversation_id: conversation_id,
             sender: 'agent',
-            text: request.text,
+
+            content: request.text,
             timestamp: response.timestamp,
             agent_name: 'You',
           };
@@ -113,6 +115,14 @@ export class ConversationService {
 
   selectConversation(conversation: Conversation): void {
     this.selectedConversation.set(conversation);
+
+    // clear old messages instantly so UI doesn't show wrong thread
+    this.messages.set([]);
+
+    // fetch messages for this conversation
+    this.getConversationMessages(conversation.id).subscribe({
+      error: () => this.messages.set([]),
+    });
   }
 
   clearMessages(): void {

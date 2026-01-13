@@ -9,6 +9,7 @@ export interface Conversation {
   contact_avatar?: string;
   last_message: string;
   last_message_time: string;
+  content: string;
   unread_count: number;
   bot_enabled: boolean;
   average_response_time: number;
@@ -27,7 +28,7 @@ export interface Message {
   id: string;
   conversation_id: string;
   sender: 'user' | 'bot' | 'agent';
-  text: string;
+  content: string;
   timestamp: string;
   response_time?: number;
   agent_name?: string;

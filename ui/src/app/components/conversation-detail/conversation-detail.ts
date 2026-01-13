@@ -1,4 +1,4 @@
-import { Component, signal, ViewChild, ElementRef } from '@angular/core';
+import { Component, signal, ViewChild, ElementRef, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ConversationService } from '../../services/conversation.service';
@@ -19,6 +19,12 @@ export class ConversationDetailComponent {
   isTyping = signal(false);
 
   constructor(public conversationService: ConversationService) {}
+
+  // displayedConversations = computed(() => {
+  //   return this.conversationService.getConversationMessages();
+  // });
+
+  displayedMessages = computed(() => this.conversationService.messages());
 
   sendMessage(): void {
     const message = this.replyMessage().trim();
