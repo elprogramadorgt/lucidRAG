@@ -15,43 +15,31 @@ lucidRAG follows clean architecture principles with domain-driven design:
 ```
 lucidRAG/
 ├── cmd/
-│   └── api/                    # Application entry points
-│       └── main.go             # Main server application
-├── internal/                   # Private application code
-│   ├── application/           # Application services (business logic)
-│   │   ├── conversation/      # Conversation service
-│   │   ├── document/          # Document & RAG service
-│   │   ├── user/              # User service
-│   │   └── whatsapp/          # WhatsApp service
-│   ├── config/                # Configuration management
-│   ├── domain/                # Domain models and interfaces
-│   │   ├── conversation/      # Conversation domain
-│   │   ├── document/          # Document domain
-│   │   ├── system/            # System logs domain
-│   │   └── user/              # User domain
-│   ├── repository/            # Data persistence layer
-│   │   └── mongo/             # MongoDB implementations
-│   └── transport/             # Transport layer
-│       └── http/              # HTTP handlers & middleware
-│           ├── middleware/    # Auth, CORS, rate limiting
-│           └── v1/            # API v1 handlers
-├── pkg/                       # Public libraries
-│   ├── chunker/              # Document chunking
-│   ├── logger/               # Logging utilities
-│   └── openai/               # OpenAI client
-├── ui/                        # Angular frontend (main UI)
+│   └── api/              # Application entry points
+│       └── main.go       # Main server application
+├── internal/             # Private application code
+│   ├── config/          # Configuration management
+│   ├── domain/          # Domain models and interfaces
+│   ├── handler/         # HTTP request handlers
+│   ├── middleware/      # HTTP middleware
+│   ├── rag/            # RAG service implementation
+│   ├── repository/     # Data persistence layer
+│   ├── service/        # Business logic services
+│   └── whatsapp/       # WhatsApp API client
+├── pkg/                 # Public libraries
+│   └── logger/         # Logging utilities
+├── admin-ui/           # Angular admin dashboard
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── components/   # UI components
-│   │   │   ├── models/       # TypeScript interfaces
-│   │   │   └── services/     # API services
-│   │   └── assets/i18n/      # Translations (en, es, fr, de, pt, zh)
+│   │   │   ├── components/  # UI components
+│   │   │   ├── models/      # TypeScript interfaces
+│   │   │   └── services/    # API services
+│   │   └── environments/    # Environment configs
 │   └── Dockerfile
-├── .env.example              # Environment variables template
-├── API.md                    # API documentation
-├── Dockerfile                # Go API Dockerfile
-├── docker-compose.yml        # Docker Compose configuration
-├── Makefile                  # Build automation
+├── .env.example        # Environment variables template
+├── Dockerfile          # Go API Dockerfile
+├── docker-compose.yml  # Docker Compose configuration
+├── Makefile           # Build automation
 └── README.md
 ```
 
@@ -85,8 +73,8 @@ docker-compose up -d
 
 The services will be available at:
 - API: http://localhost:8080
-- Frontend UI: http://localhost:4200
-- MongoDB: localhost:27019
+- Admin UI: http://localhost:4200
+- MongoDB: localhost:27017
 
 ### Local Development
 
@@ -117,9 +105,9 @@ make test
 
 #### Frontend (Angular)
 
-1. Navigate to ui directory:
+1. Navigate to admin-ui directory:
 ```bash
-cd ui
+cd admin-ui
 ```
 
 2. Install dependencies:
@@ -133,11 +121,6 @@ npm start
 ```
 
 The Angular app will be available at http://localhost:4200
-
-**Features:**
-- Multi-language support (auto-detects browser language)
-- Dark/light theme with system preference detection
-- Responsive design with mobile support
 
 ## 🔧 Configuration
 
@@ -168,13 +151,6 @@ Key configuration options in `.env`:
 - `JWT_EXPIRY_HOURS`: Token expiry time in hours (default: 24)
 - `OPENAI_API_KEY`: OpenAI API key for embeddings and chat completion
 
-**OAuth Configuration (optional):**
-- `GOOGLE_OAUTH_ENABLED`: Enable Google OAuth (true/false)
-- `GOOGLE_CLIENT_ID`: Google OAuth client ID
-- `GOOGLE_CLIENT_SECRET`: Google OAuth client secret
-- `FACEBOOK_OAUTH_ENABLED`: Enable Facebook OAuth (true/false)
-- `APPLE_OAUTH_ENABLED`: Enable Apple Sign In (true/false)
-
 **Database Configuration (MongoDB):**
 - `DB_TYPE`: Database type (default: mongodb)
 - `DB_HOST`: Database host
@@ -193,16 +169,10 @@ GET /readyz               (Readiness check with DB status)
 
 ### Authentication API
 ```
-POST /api/v1/auth/register           (Register new user)
-POST /api/v1/auth/login              (Login and get JWT token)
-GET  /api/v1/auth/me                 (Get current user - requires auth)
-GET  /api/v1/auth/oauth/providers    (List enabled OAuth providers)
-GET  /api/v1/auth/oauth/google       (Initiate Google OAuth)
-GET  /api/v1/auth/oauth/facebook     (Initiate Facebook OAuth)
-GET  /api/v1/auth/oauth/apple        (Initiate Apple Sign In)
+POST /api/v1/auth/register   (Register new user)
+POST /api/v1/auth/login      (Login and get JWT token)
+GET  /api/v1/auth/me         (Get current user - requires auth)
 ```
-
-Authentication uses Bearer tokens. Include `Authorization: Bearer <token>` header for protected endpoints.
 
 ### WhatsApp Webhook
 ```
@@ -233,15 +203,13 @@ GET /api/v1/conversations/{id}/messages (Get conversation messages)
 
 ## 🎨 Frontend Features
 
-The Angular UI provides:
+The Angular admin UI provides:
 
-- **Authentication**: Login/Register with JWT-based authentication and OAuth social login
+- **Authentication**: Login/Register with JWT-based authentication
 - **Dashboard**: Overview of system status and features
 - **Document Management**: Upload, edit, and delete knowledge base documents
 - **Conversation History**: View WhatsApp conversations and RAG responses
-- **Internationalization**: Auto-detects browser language (EN, ES, FR, DE, PT, ZH)
-- **Theming**: Dark/light mode with system preference detection
-- **Responsive Design**: Works on desktop and mobile with gesture support
+- **Responsive Design**: Works on desktop and mobile devices
 
 ## 🧪 Testing
 
@@ -259,7 +227,7 @@ make lint
 
 ### Angular Tests
 ```bash
-cd ui
+cd admin-ui
 npm test
 ```
 
@@ -320,7 +288,7 @@ docker-compose build
 
 # Or build individually
 docker build -t lucidrag-api:latest .
-cd ui && docker build -t lucidrag-ui:latest .
+cd admin-ui && docker build -t lucidrag-ui:latest .
 ```
 
 ## 🤝 Contributing
@@ -344,9 +312,7 @@ For questions or issues, please open an issue on GitHub.
 - [x] Implement actual RAG query logic with embeddings
 - [x] Add user authentication and authorization
 - [x] Implement conversation history view
-- [x] Add support for multiple languages (i18n with auto-detection)
-- [x] Add OAuth social login (Google, Facebook, Apple)
-- [x] Add dark/light theme support
+- [ ] Add support for multiple languages
 - [ ] Implement analytics dashboard
 - [ ] Add file upload for documents (PDF, DOCX, etc.)
 - [ ] Implement vector database integration (Pinecone, Weaviate, etc.)

@@ -2,6 +2,7 @@ package mongo
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/elprogramadorgt/lucidRAG/internal/domain/conversation"
@@ -11,30 +12,28 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// ConversationRepo implements conversation.ConversationRepository using MongoDB.
 type ConversationRepo struct {
 	collection *mongo.Collection
 }
 
-// NewConversationRepo creates a new ConversationRepo with the given database client.
 func NewConversationRepo(client *DbClient) *ConversationRepo {
 	return &ConversationRepo{
 		collection: client.DB.Collection("conversations"),
 	}
 }
 
-func (r *ConversationRepo) Create(ctx context.Context, conv *conversation.Conversation) (string, error) {
+func (r *ConversationRepo) Create(ctx context.Context, conv *conversation.Conversation) (primitive.ObjectID, error) {
 	conv.CreatedAt = time.Now()
 	conv.UpdatedAt = time.Now()
 	conv.LastMessageAt = time.Now()
 
-	if conv.ID == "" {
-		conv.ID = primitive.NewObjectID().Hex()
+	if conv.ID == primitive.NilObjectID {
+		conv.ID = primitive.NewObjectID()
 	}
 
 	_, err := r.collection.InsertOne(ctx, conv)
 	if err != nil {
-		return "", err
+		return primitive.NilObjectID, err
 	}
 
 	return conv.ID, nil
@@ -42,13 +41,22 @@ func (r *ConversationRepo) Create(ctx context.Context, conv *conversation.Conver
 
 func (r *ConversationRepo) GetByID(ctx context.Context, id string) (*conversation.Conversation, error) {
 	var conv conversation.Conversation
-	err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&conv)
+
+	//convert id string to ObjectID
+	objID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.collection.FindOne(ctx, bson.M{"_id": objID}).Decode(&conv)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil, nil
 		}
 		return nil, err
 	}
+
+	fmt.Println("Fetched conversation:", conv.Content)
 	return &conv, nil
 }
 
@@ -88,7 +96,7 @@ func (r *ConversationRepo) List(ctx context.Context, limit, offset int) ([]conve
 	return convs, nil
 }
 
-func (r *ConversationRepo) UpdateLastMessage(ctx context.Context, id string) error {
+func (r *ConversationRepo) UpdateLastMessage(ctx context.Context, id primitive.ObjectID) error {
 	_, err := r.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": id},
@@ -102,7 +110,7 @@ func (r *ConversationRepo) UpdateLastMessage(ctx context.Context, id string) err
 	return err
 }
 
-func (r *ConversationRepo) IncrementMessageCount(ctx context.Context, id string) error {
+func (r *ConversationRepo) IncrementMessageCount(ctx context.Context, id primitive.ObjectID) error {
 	_, err := r.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": id},

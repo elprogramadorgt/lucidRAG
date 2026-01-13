@@ -12,15 +12,15 @@
       <div class="flex items-center gap-3">
         <!-- Avatar with online status -->
         <div class="relative">
-          @if (conversation.contactAvatar) {
+          @if (conversation.contact_avatar) {
           <img
-            [src]="conversation.contactAvatar"
-            [alt]="conversation.contactName"
+            [src]="conversation.contact_avatar"
+            [alt]="conversation.contact_name"
             class="w-10 h-10 rounded-full object-cover"
           />
           } @else {
           <div class="avatar w-10 h-10 text-base">
-            {{ conversation.contactName.charAt(0).toUpperCase() }}
+            {{ conversation.contact_name.charAt(0).toUpperCase() }}
           </div>
           }
           <!-- Online indicator positioned on avatar -->
@@ -34,11 +34,11 @@
 
         <div>
           <h2 class="font-semibold" style="color: var(--color-text-primary)">
-            {{ conversation.contactName }}
+            {{ conversation.contact_name }}
           </h2>
           <div class="flex items-center gap-2">
             <span class="text-sm" style="color: var(--color-text-tertiary)">
-              {{ conversation.contactId }}
+              {{ conversation.contact_id }}
             </span>
             <span class="text-xs" style="color: var(--color-text-tertiary)">
               &#8226;
@@ -57,8 +57,8 @@
         <!-- Bot toggle -->
         <button
           class="btn btn-ghost p-2 rounded-lg"
-          [class.text-green-500]="conversation.botEnabled"
-          [title]="conversation.botEnabled ? 'Bot enabled' : 'Bot disabled'"
+          [class.text-green-500]="conversation.bot_enabled"
+          [title]="conversation.bot_enabled ? 'Bot enabled' : 'Bot disabled'"
         >
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
@@ -92,50 +92,38 @@
   </div>
 
   <!-- Messages Area -->
-  <div
-    #messagesContainer
-    class="flex-1 overflow-y-auto custom-scrollbar p-4"
-    style="background-color: var(--color-bg-secondary)"
-  >
-    <div class="flex flex-col items-center justify-center h-full text-center">
-      <svg
-        class="w-16 h-16 mb-4"
-        style="color: var(--color-text-tertiary)"
-        fill="none"
-        stroke="currentColor"
-        viewBox="0 0 24 24"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-        />
-      </svg>
-      <p class="font-medium" style="color: var(--color-text-secondary)">
-        No messages yet
-      </p>
-      <p class="text-sm mt-1" style="color: var(--color-text-tertiary)">
-        Messages will appear here
-      </p>
-    </div>
-  </div>
-
-  <!-- Typing indicator -->
-  @if (isTyping()) {
-  <div class="px-4 py-2" style="background-color: var(--color-bg-secondary)">
-    <div class="flex items-center gap-2">
-      <div class="typing-indicator">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-      <span class="text-sm" style="color: var(--color-text-tertiary)">
-        {{ conversation.contactName }} is typing...
-      </span>
-    </div>
+<div #messagesContainer class="flex-1 overflow-y-auto custom-scrollbar p-4"
+  style="background-color: var(--color-bg-secondary)">
+  @if (conversationService.messages().length === 0) {
+  <div class="flex flex-col items-center justify-center h-full text-center">
+    <p class="font-medium" style="color: var(--color-text-secondary)">No messages yet</p>
+    <p class="text-sm mt-1" style="color: var(--color-text-tertiary)">Messages will appear here</p>
   </div>
   }
+  @else {
+  <div class="flex flex-col gap-2">
+    @for (m of conversationService.messages(); track (m.id ?? m.timestamp)) {
+    <div class="max-w-[75%] px-3 py-2 rounded-lg" [class.ml-auto]="m.sender === 'agent'"
+      [class.mr-auto]="m.sender !== 'agent'"
+      [style.backgroundColor]="m.sender === 'agent' ? 'var(--color-surface-primary)' : 'var(--color-surface-secondary)'"
+      [style.border]="m.sender === 'agent'
+            ? '1px solid var(--color-border-primary)'
+            : '1px solid var(--color-border-secondary)'">
+      <div class="text-sm whitespace-pre-wrap break-words" style="color: var(--color-text-primary)">
+        {{ m.content }}
+      </div>
+
+      <div class="text-xs mt-1" style="color: var(--color-text-tertiary)">
+        {{ m.timestamp | date: 'short' }} 
+      </div>
+    </div>
+    }
+  </div>
+  }
+</div>
+
+  <!-- Typing indicator -->
+  
 
   <!-- Reply Box -->
   <div

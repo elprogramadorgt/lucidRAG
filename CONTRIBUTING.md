@@ -81,7 +81,7 @@ go test ./internal/rag -v
 ### Angular Tests
 
 ```bash
-cd ui
+cd admin-ui
 npm test
 ```
 

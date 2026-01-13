@@ -56,9 +56,10 @@ export class ConversationService {
     const params = new HttpParams().set('limit', limit.toString());
 
     return this.http
-      .get<MessagesResponse>(`${environment.apiUrl}/v1/conversations/${conversationId}/messages`, {
-        params,
-      })
+      .get<MessagesResponse>(
+        `${environment.apiUrl}/v1/conversations/${conversationId}/messages`,
+        {}
+      )
       .pipe(
         tap((response) => {
           this.messages.set(response.messages);
@@ -66,21 +67,22 @@ export class ConversationService {
       );
   }
 
-  sendReply(conversationId: string, request: SendReplyRequest): Observable<SendReplyResponse> {
+  sendReply(conversation_id: string, request: SendReplyRequest): Observable<SendReplyResponse> {
     return this.http
       .post<SendReplyResponse>(
-        `${environment.apiUrl}/v1/conversations/${conversationId}/reply`,
+        `${environment.apiUrl}/v1/conversations/${conversation_id}/reply`,
         request
       )
       .pipe(
         tap((response) => {
           const newMessage: Message = {
-            id: response.messageId,
-            conversationId,
+            id: response.message_id,
+            conversation_id: conversation_id,
             sender: 'agent',
-            text: request.text,
+
+            content: request.text,
             timestamp: response.timestamp,
-            agentName: 'You',
+            agent_name: 'You',
           };
           this.messages.update((msgs) => [...msgs, newMessage]);
         })
@@ -99,13 +101,13 @@ export class ConversationService {
         tap((response) => {
           this.conversations.update((convs) =>
             convs.map((conv) =>
-              conv.id === conversationId ? { ...conv, botEnabled: response.botEnabled } : conv
+              conv.id === conversationId ? { ...conv, bot_enabled: response.bot_enabled } : conv
             )
           );
 
           const selected = this.selectedConversation();
           if (selected && selected.id === conversationId) {
-            this.selectedConversation.set({ ...selected, botEnabled: response.botEnabled });
+            this.selectedConversation.set({ ...selected, bot_enabled: response.bot_enabled });
           }
         })
       );
@@ -113,6 +115,14 @@ export class ConversationService {
 
   selectConversation(conversation: Conversation): void {
     this.selectedConversation.set(conversation);
+
+    // clear old messages instantly so UI doesn't show wrong thread
+    this.messages.set([]);
+
+    // fetch messages for this conversation
+    this.getConversationMessages(conversation.id).subscribe({
+      error: () => this.messages.set([]),
+    });
   }
 
   clearMessages(): void {

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/elprogramadorgt/lucidRAG/internal/config"
@@ -73,8 +72,6 @@ func setupOAuthTestRouter() *gin.Engine {
 	return gin.New()
 }
 
-const testJWTSecret = "test-jwt-secret-for-oauth-state-signing"
-
 func createTestOAuthHandler(mockSvc *mockUserServiceOAuth) *OAuthHandler {
 	log := logger.New(logger.Options{Level: "error"})
 	return NewOAuthHandler(
@@ -100,7 +97,11 @@ func createTestOAuthHandler(mockSvc *mockUserServiceOAuth) *OAuthHandler {
 				Enabled:    true,
 			},
 		},
-		testJWTSecret,
+		CookieConfig{
+			Domain:      "localhost",
+			Secure:      false,
+			ExpiryHours: 24,
+		},
 	)
 }
 
@@ -147,7 +148,7 @@ func TestGetProvidersDisabled(t *testing.T) {
 			Facebook:        config.OAuthProviderConfig{Enabled: false},
 			Apple:           config.AppleOAuthConfig{Enabled: false},
 		},
-		testJWTSecret,
+		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()
@@ -180,7 +181,7 @@ func TestGoogleLoginDisabled(t *testing.T) {
 		config.OAuthConfig{
 			Google: config.OAuthProviderConfig{Enabled: false},
 		},
-		testJWTSecret,
+		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()
@@ -231,7 +232,7 @@ func TestFacebookLoginDisabled(t *testing.T) {
 		config.OAuthConfig{
 			Facebook: config.OAuthProviderConfig{Enabled: false},
 		},
-		testJWTSecret,
+		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()
@@ -277,7 +278,7 @@ func TestAppleLoginDisabled(t *testing.T) {
 		config.OAuthConfig{
 			Apple: config.AppleOAuthConfig{Enabled: false},
 		},
-		testJWTSecret,
+		CookieConfig{},
 	)
 
 	router := setupOAuthTestRouter()
@@ -322,8 +323,8 @@ func TestGoogleCallbackInvalidState(t *testing.T) {
 	router := setupOAuthTestRouter()
 	router.GET("/callback", handler.GoogleCallback)
 
-	// Use an invalid state (not properly signed)
-	req, _ := http.NewRequest("GET", "/callback?state=invalid-state&code=auth-code", nil)
+	req, _ := http.NewRequest("GET", "/callback?state=invalid&code=auth-code", nil)
+	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "different-state"})
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
@@ -343,17 +344,11 @@ func TestGoogleCallbackNoCode(t *testing.T) {
 	mockSvc := &mockUserServiceOAuth{}
 	handler := createTestOAuthHandler(mockSvc)
 
-	// Generate a valid signed state
-	validState, err := handler.generateSignedState()
-	if err != nil {
-		t.Fatalf("Failed to generate state: %v", err)
-	}
-
 	router := setupOAuthTestRouter()
 	router.GET("/callback", handler.GoogleCallback)
 
-	// Valid state but no code
-	req, _ := http.NewRequest("GET", "/callback?state="+validState, nil)
+	req, _ := http.NewRequest("GET", "/callback?state=test-state", nil)
+	req.AddCookie(&http.Cookie{Name: "oauth_state", Value: "test-state"})
 	resp := httptest.NewRecorder()
 
 	router.ServeHTTP(resp, req)
@@ -407,10 +402,8 @@ func TestParseJWTClaimsInvalidBase64(t *testing.T) {
 	}
 }
 
-func TestGenerateSignedState(t *testing.T) {
-	handler := createTestOAuthHandler(&mockUserServiceOAuth{})
-
-	state1, err := handler.generateSignedState()
+func TestGenerateState(t *testing.T) {
+	state1, err := generateState()
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -418,50 +411,20 @@ func TestGenerateSignedState(t *testing.T) {
 		t.Error("Expected non-empty state")
 	}
 
-	state2, err := handler.generateSignedState()
+	state2, err := generateState()
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	// States should be unique (different nonces)
+	// States should be unique
 	if state1 == state2 {
 		t.Error("Expected unique states")
 	}
 
-	// State should have 3 parts (nonce.timestamp.signature)
-	parts := strings.Split(state1, ".")
-	if len(parts) != 3 {
-		t.Errorf("Expected 3 parts in state, got %d", len(parts))
-	}
-}
-
-func TestVerifySignedState(t *testing.T) {
-	handler := createTestOAuthHandler(&mockUserServiceOAuth{})
-
-	// Generate valid state
-	validState, err := handler.generateSignedState()
+	// State should be base64 encoded
+	_, err = base64.URLEncoding.DecodeString(state1)
 	if err != nil {
-		t.Fatalf("Failed to generate state: %v", err)
-	}
-
-	// Valid state should verify
-	if !handler.verifySignedState(validState) {
-		t.Error("Expected valid state to verify")
-	}
-
-	// Invalid state should not verify
-	if handler.verifySignedState("invalid-state") {
-		t.Error("Expected invalid state to fail verification")
-	}
-
-	// Tampered state should not verify
-	if handler.verifySignedState(validState + "tampered") {
-		t.Error("Expected tampered state to fail verification")
-	}
-
-	// Wrong format should not verify
-	if handler.verifySignedState("only.two.parts.here") {
-		t.Error("Expected wrong format to fail verification")
+		t.Errorf("Expected valid base64, got error: %v", err)
 	}
 }
 

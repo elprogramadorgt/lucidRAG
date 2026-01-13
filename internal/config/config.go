@@ -8,26 +8,28 @@ import (
 
 // Config holds the application configuration
 type Config struct {
-	Server    ServerConfig
-	WhatsApp  WhatsAppConfig
-	RAG       RAGConfig
-	Database  DatabaseConfig
-	Auth      AuthConfig
+	Server   ServerConfig
+	WhatsApp WhatsAppConfig
+	RAG      RAGConfig
+	Database DatabaseConfig
+	Auth     AuthConfig
 }
 
 // AuthConfig holds authentication configuration
 type AuthConfig struct {
 	JWTSecret      string
 	JWTExpiryHours int
+	CookieDomain   string
+	CookieSecure   bool
 	OAuth          OAuthConfig
 }
 
 // OAuthConfig holds OAuth provider configurations
 type OAuthConfig struct {
-	RedirectBaseURL    string
-	Google             OAuthProviderConfig
-	Facebook           OAuthProviderConfig
-	Apple              AppleOAuthConfig
+	RedirectBaseURL string
+	Google          OAuthProviderConfig
+	Facebook        OAuthProviderConfig
+	Apple           AppleOAuthConfig
 }
 
 // OAuthProviderConfig holds standard OAuth provider settings
@@ -53,21 +55,13 @@ type ServerConfig struct {
 	Environment string
 }
 
-// LogLevel returns the appropriate log level for the environment.
-func (s ServerConfig) LogLevel() string {
-	if s.Environment == "development" {
-		return "debug"
-	}
-	return "info"
-}
-
 // WhatsAppConfig holds WhatsApp API configuration
 type WhatsAppConfig struct {
-	APIKey      string
-	PhoneNumberID string
-	BusinessAccountID string
+	APIKey             string
+	PhoneNumberID      string
+	BusinessAccountID  string
 	WebhookVerifyToken string
-	APIVersion  string
+	APIVersion         string
 }
 
 // RAGConfig holds RAG-related configuration
@@ -87,12 +81,6 @@ type DatabaseConfig struct {
 	Name     string
 	User     string
 	Password string
-}
-
-// MongoURI returns the MongoDB connection URI.
-func (d DatabaseConfig) MongoURI() string {
-	return fmt.Sprintf("mongodb://%s:%s@%s:%d/%s?authSource=admin",
-		d.User, d.Password, d.Host, d.Port, d.Name)
 }
 
 // Load reads configuration from environment variables
@@ -122,6 +110,8 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid JWT_EXPIRY_HOURS: %w", err)
 	}
 
+	cookieSecure := getEnv("COOKIE_SECURE", "false") == "true"
+
 	config := &Config{
 		Server: ServerConfig{
 			Port:        port,
@@ -133,7 +123,7 @@ func Load() (*Config, error) {
 			PhoneNumberID:      getEnv("WHATSAPP_PHONE_NUMBER_ID", ""),
 			BusinessAccountID:  getEnv("WHATSAPP_BUSINESS_ACCOUNT_ID", ""),
 			WebhookVerifyToken: getEnv("WHATSAPP_WEBHOOK_VERIFY_TOKEN", ""),
-			APIVersion:         getEnv("WHATSAPP_API_VERSION", "v17.0"),
+			APIVersion:         getEnv("WHATSAPP_API_VERSION", "v22.0"),
 		},
 		RAG: RAGConfig{
 			OpenAIAPIKey:   getEnv("OPENAI_API_KEY", ""),
@@ -153,6 +143,8 @@ func Load() (*Config, error) {
 		Auth: AuthConfig{
 			JWTSecret:      getEnv("JWT_SECRET", ""),
 			JWTExpiryHours: jwtExpiry,
+			CookieDomain:   getEnv("COOKIE_DOMAIN", ""),
+			CookieSecure:   cookieSecure,
 			OAuth: OAuthConfig{
 				RedirectBaseURL: getEnv("OAUTH_REDIRECT_BASE_URL", "http://localhost:4200"),
 				Google: OAuthProviderConfig{

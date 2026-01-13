@@ -16,14 +16,15 @@ export class ConversationListComponent implements OnInit {
   focusedIndex = signal(-1);
 
   // Use filtered conversations from search service
-  displayedConversations = computed(() => {
-    return this.searchService.filteredConversations();
-  });
 
   constructor(
     public conversationService: ConversationService,
     public searchService: SearchService
   ) {}
+
+  displayedConversations = computed(() => {
+    return this.searchService.filteredConversations();
+  });
 
   ngOnInit(): void {
     this.conversationService.getConversations().subscribe({
