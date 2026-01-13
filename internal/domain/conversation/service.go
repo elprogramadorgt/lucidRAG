@@ -1,6 +1,10 @@
 package conversation
 
-import "context"
+import (
+	"context"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
+)
 
 type UserContext struct {
 	UserID  string
@@ -13,6 +17,6 @@ type Service interface {
 	GetConversation(ctx context.Context, userCtx UserContext, id string) (*Conversation, error)
 
 	SaveIncomingMessage(ctx context.Context, phoneNumber, contactName, whatsappMsgID, content, msgType string) (*Message, error)
-	SaveOutgoingMessage(ctx context.Context, conversationID, content, ragAnswer string) (*Message, error)
+	SaveOutgoingMessage(ctx context.Context, conversationID primitive.ObjectID, content, ragAnswer string) (*Message, error)
 	GetMessages(ctx context.Context, userCtx UserContext, conversationID string, limit, offset int) ([]Message, int64, error)
 }

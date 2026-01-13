@@ -6,6 +6,7 @@ import (
 	"time"
 
 	conversationDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/conversation"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 var (
@@ -136,7 +137,7 @@ func (s *service) SaveIncomingMessage(ctx context.Context, phoneNumber, contactN
 	return msg, nil
 }
 
-func (s *service) SaveOutgoingMessage(ctx context.Context, conversationID, content, ragAnswer string) (*conversationDomain.Message, error) {
+func (s *service) SaveOutgoingMessage(ctx context.Context, conversationID primitive.ObjectID, content, ragAnswer string) (*conversationDomain.Message, error) {
 	msg := &conversationDomain.Message{
 		ConversationID: conversationID,
 		Direction:      conversationDomain.DirectionOutgoing,
@@ -160,6 +161,7 @@ func (s *service) SaveOutgoingMessage(ctx context.Context, conversationID, conte
 
 func (s *service) GetMessages(ctx context.Context, userCtx conversationDomain.UserContext, conversationID string, limit, offset int) ([]conversationDomain.Message, int64, error) {
 	conv, err := s.convRepo.GetByID(ctx, conversationID)
+
 	if err != nil {
 		return nil, 0, err
 	}
@@ -181,12 +183,12 @@ func (s *service) GetMessages(ctx context.Context, userCtx conversationDomain.Us
 		offset = 0
 	}
 
-	msgs, err := s.msgRepo.GetByConversationID(ctx, conversationID, limit, offset)
+	msgs, err := s.msgRepo.GetByConversationID(ctx, conv.ID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	total, err := s.msgRepo.CountByConversation(ctx, conversationID)
+	total, err := s.msgRepo.CountByConversation(ctx, conv.ID)
 	if err != nil {
 		return nil, 0, err
 	}

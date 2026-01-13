@@ -3,6 +3,8 @@ package conversation
 import (
 	"testing"
 	"time"
+
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 func TestMessageDirectionConstants(t *testing.T) {
@@ -16,8 +18,9 @@ func TestMessageDirectionConstants(t *testing.T) {
 
 func TestConversationStruct(t *testing.T) {
 	now := time.Now()
+	objID := primitive.NewObjectID()
 	conv := Conversation{
-		ID:            "conv-123",
+		ID:            objID,
 		UserID:        "user-456",
 		PhoneNumber:   "+1234567890",
 		ContactName:   "John Doe",
@@ -27,8 +30,8 @@ func TestConversationStruct(t *testing.T) {
 		UpdatedAt:     now,
 	}
 
-	if conv.ID != "conv-123" {
-		t.Errorf("Expected ID 'conv-123', got '%s'", conv.ID)
+	if conv.ID != objID {
+		t.Errorf("Expected ID '%s', got '%s'", objID.Hex(), conv.ID.Hex())
 	}
 	if conv.UserID != "user-456" {
 		t.Errorf("Expected UserID 'user-456', got '%s'", conv.UserID)
@@ -46,9 +49,11 @@ func TestConversationStruct(t *testing.T) {
 
 func TestMessageStruct(t *testing.T) {
 	now := time.Now()
+	objID := primitive.NewObjectID()
+	convID := primitive.NewObjectID()
 	msg := Message{
-		ID:             "msg-123",
-		ConversationID: "conv-456",
+		ID:             objID,
+		ConversationID: convID,
 		WhatsAppMsgID:  "wa-789",
 		Direction:      DirectionIncoming,
 		Content:        "Hello, world!",
@@ -59,11 +64,11 @@ func TestMessageStruct(t *testing.T) {
 		CreatedAt:      now,
 	}
 
-	if msg.ID != "msg-123" {
-		t.Errorf("Expected ID 'msg-123', got '%s'", msg.ID)
+	if msg.ID != objID {
+		t.Errorf("Expected ID '%s', got '%s'", objID.Hex(), msg.ID.Hex())
 	}
-	if msg.ConversationID != "conv-456" {
-		t.Errorf("Expected ConversationID 'conv-456', got '%s'", msg.ConversationID)
+	if msg.ConversationID != convID {
+		t.Errorf("Expected ConversationID '%s', got '%s'", convID.Hex(), msg.ConversationID.Hex())
 	}
 	if msg.WhatsAppMsgID != "wa-789" {
 		t.Errorf("Expected WhatsAppMsgID 'wa-789', got '%s'", msg.WhatsAppMsgID)
@@ -87,7 +92,7 @@ func TestMessageStruct(t *testing.T) {
 
 func TestConversationZeroValue(t *testing.T) {
 	var conv Conversation
-	if conv.ID != "" {
+	if conv.ID != primitive.NilObjectID {
 		t.Errorf("Expected empty ID, got '%s'", conv.ID)
 	}
 	if conv.MessageCount != 0 {
@@ -97,7 +102,7 @@ func TestConversationZeroValue(t *testing.T) {
 
 func TestMessageZeroValue(t *testing.T) {
 	var msg Message
-	if msg.ID != "" {
+	if msg.ID != primitive.NilObjectID {
 		t.Errorf("Expected empty ID, got '%s'", msg.ID)
 	}
 	if msg.Direction != "" {

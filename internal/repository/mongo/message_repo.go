@@ -21,16 +21,16 @@ func NewMessageRepo(client *DbClient) *MessageRepo {
 	}
 }
 
-func (r *MessageRepo) Create(ctx context.Context, msg *conversation.Message) (string, error) {
+func (r *MessageRepo) Create(ctx context.Context, msg *conversation.Message) (primitive.ObjectID, error) {
 	msg.CreatedAt = time.Now()
 
-	if msg.ID == "" {
-		msg.ID = primitive.NewObjectID().Hex()
+	if msg.ID == primitive.NilObjectID {
+		msg.ID = primitive.NewObjectID()
 	}
 
 	_, err := r.collection.InsertOne(ctx, msg)
 	if err != nil {
-		return "", err
+		return primitive.NilObjectID, err
 	}
 
 	return msg.ID, nil
@@ -48,11 +48,11 @@ func (r *MessageRepo) GetByID(ctx context.Context, id string) (*conversation.Mes
 	return &msg, nil
 }
 
-func (r *MessageRepo) GetByConversationID(ctx context.Context, conversationID string, limit, offset int) ([]conversation.Message, error) {
+func (r *MessageRepo) GetByConversationID(ctx context.Context, conversationID primitive.ObjectID, limit, offset int) ([]conversation.Message, error) {
 	opts := options.Find().
 		SetLimit(int64(limit)).
 		SetSkip(int64(offset)).
-		SetSort(bson.D{{Key: "timestamp", Value: -1}})
+		SetSort(bson.D{{Key: "timestamp", Value: 1}})
 
 	cursor, err := r.collection.Find(ctx, bson.M{"conversation_id": conversationID}, opts)
 	if err != nil {
@@ -72,6 +72,6 @@ func (r *MessageRepo) GetByConversationID(ctx context.Context, conversationID st
 	return msgs, nil
 }
 
-func (r *MessageRepo) CountByConversation(ctx context.Context, conversationID string) (int64, error) {
+func (r *MessageRepo) CountByConversation(ctx context.Context, conversationID primitive.ObjectID) (int64, error) {
 	return r.collection.CountDocuments(ctx, bson.M{"conversation_id": conversationID})
 }

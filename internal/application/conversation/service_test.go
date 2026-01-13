@@ -7,6 +7,7 @@ import (
 	"time"
 
 	conversationDomain "github.com/elprogramadorgt/lucidRAG/internal/domain/conversation"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // mockConversationRepo is a mock implementation of ConversationRepository
@@ -22,12 +23,12 @@ func newMockConversationRepo() *mockConversationRepo {
 	}
 }
 
-func (m *mockConversationRepo) Create(ctx context.Context, conv *conversationDomain.Conversation) (string, error) {
-	id := "conv_" + conv.PhoneNumber
+func (m *mockConversationRepo) Create(ctx context.Context, conv *conversationDomain.Conversation) (primitive.ObjectID, error) {
+	id := primitive.NewObjectID()
 	conv.ID = id
 	conv.CreatedAt = time.Now()
 	conv.UpdatedAt = time.Now()
-	m.conversations[id] = conv
+	m.conversations[id.Hex()] = conv
 	m.phoneIndex[conv.PhoneNumber] = conv
 	return id, nil
 }
@@ -80,16 +81,16 @@ func (m *mockConversationRepo) CountByUser(ctx context.Context, userID string) (
 	return count, nil
 }
 
-func (m *mockConversationRepo) UpdateLastMessage(ctx context.Context, id string) error {
-	if conv, exists := m.conversations[id]; exists {
+func (m *mockConversationRepo) UpdateLastMessage(ctx context.Context, id primitive.ObjectID) error {
+	if conv, exists := m.conversations[id.Hex()]; exists {
 		conv.LastMessageAt = time.Now()
 		conv.UpdatedAt = time.Now()
 	}
 	return nil
 }
 
-func (m *mockConversationRepo) IncrementMessageCount(ctx context.Context, id string) error {
-	if conv, exists := m.conversations[id]; exists {
+func (m *mockConversationRepo) IncrementMessageCount(ctx context.Context, id primitive.ObjectID) error {
+	if conv, exists := m.conversations[id.Hex()]; exists {
 		conv.MessageCount++
 	}
 	return nil
@@ -108,16 +109,16 @@ func newMockMessageRepo() *mockMessageRepo {
 	}
 }
 
-func (m *mockMessageRepo) Create(ctx context.Context, msg *conversationDomain.Message) (string, error) {
-	id := "msg_" + msg.ConversationID + "_" + string(rune(len(m.messages)))
+func (m *mockMessageRepo) Create(ctx context.Context, msg *conversationDomain.Message) (primitive.ObjectID, error) {
+	id := primitive.NewObjectID()
 	msg.ID = id
-	m.messages[id] = msg
-	m.byConv[msg.ConversationID] = append(m.byConv[msg.ConversationID], msg)
+	m.messages[id.Hex()] = msg
+	m.byConv[msg.ConversationID.Hex()] = append(m.byConv[msg.ConversationID.Hex()], msg)
 	return id, nil
 }
 
-func (m *mockMessageRepo) GetByConversationID(ctx context.Context, conversationID string, limit, offset int) ([]conversationDomain.Message, error) {
-	msgs := m.byConv[conversationID]
+func (m *mockMessageRepo) GetByConversationID(ctx context.Context, conversationID primitive.ObjectID, limit, offset int) ([]conversationDomain.Message, error) {
+	msgs := m.byConv[conversationID.Hex()]
 	result := make([]conversationDomain.Message, 0)
 	for _, msg := range msgs {
 		result = append(result, *msg)
@@ -133,8 +134,8 @@ func (m *mockMessageRepo) GetByID(ctx context.Context, id string) (*conversation
 	return msg, nil
 }
 
-func (m *mockMessageRepo) CountByConversation(ctx context.Context, conversationID string) (int64, error) {
-	return int64(len(m.byConv[conversationID])), nil
+func (m *mockMessageRepo) CountByConversation(ctx context.Context, conversationID primitive.ObjectID) (int64, error) {
+	return int64(len(m.byConv[conversationID.Hex()])), nil
 }
 
 func TestNewConversationService(t *testing.T) {
@@ -316,7 +317,7 @@ func TestGetConversation(t *testing.T) {
 		UserID:  "user-123",
 		IsAdmin: false,
 	}
-	retrieved, err := svc.GetConversation(ctx, userCtx, conv.ID)
+	retrieved, err := svc.GetConversation(ctx, userCtx, conv.ID.Hex())
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -365,7 +366,7 @@ func TestGetConversationForbidden(t *testing.T) {
 		IsAdmin: false,
 	}
 
-	_, err := svc.GetConversation(ctx, otherUserCtx, conv.ID)
+	_, err := svc.GetConversation(ctx, otherUserCtx, conv.ID.Hex())
 	if !errors.Is(err, ErrForbidden) {
 		t.Errorf("Expected ErrForbidden, got %v", err)
 	}
@@ -446,7 +447,7 @@ func TestGetMessages(t *testing.T) {
 		IsAdmin: false,
 	}
 
-	msgs, total, err := svc.GetMessages(ctx, userCtx, conv.ID, 50, 0)
+	msgs, total, err := svc.GetMessages(ctx, userCtx, conv.ID.Hex(), 50, 0)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -498,7 +499,7 @@ func TestGetMessagesForbidden(t *testing.T) {
 		IsAdmin: false,
 	}
 
-	_, _, err := svc.GetMessages(ctx, otherUserCtx, conv.ID, 50, 0)
+	_, _, err := svc.GetMessages(ctx, otherUserCtx, conv.ID.Hex(), 50, 0)
 	if !errors.Is(err, ErrForbidden) {
 		t.Errorf("Expected ErrForbidden, got %v", err)
 	}
@@ -523,19 +524,19 @@ func TestGetMessagesWithLimits(t *testing.T) {
 	}
 
 	// Test with negative limit (should default to 50)
-	_, _, err := svc.GetMessages(ctx, userCtx, conv.ID, -1, 0)
+	_, _, err := svc.GetMessages(ctx, userCtx, conv.ID.Hex(), -1, 0)
 	if err != nil {
 		t.Fatalf("Expected no error with negative limit, got %v", err)
 	}
 
 	// Test with limit > 200 (should cap at 200)
-	_, _, err = svc.GetMessages(ctx, userCtx, conv.ID, 500, 0)
+	_, _, err = svc.GetMessages(ctx, userCtx, conv.ID.Hex(), 500, 0)
 	if err != nil {
 		t.Fatalf("Expected no error with large limit, got %v", err)
 	}
 
 	// Test with negative offset (should default to 0)
-	_, _, err = svc.GetMessages(ctx, userCtx, conv.ID, 50, -5)
+	_, _, err = svc.GetMessages(ctx, userCtx, conv.ID.Hex(), 50, -5)
 	if err != nil {
 		t.Fatalf("Expected no error with negative offset, got %v", err)
 	}
